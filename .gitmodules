@@ -1,0 +1,6 @@
+[submodule "hi-ml"]
+	path = hi-ml
+	url = https://github.com/microsoft/hi-ml.git
+[submodule "M3AE"]
+	path = M3AE
+	url = https://github.com/vdurham/M3AE.git
