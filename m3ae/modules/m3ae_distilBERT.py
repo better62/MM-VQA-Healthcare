@@ -52,6 +52,12 @@ class DistilBERTVQA(pl.LightningModule):
             for param in self.distilbert.transformer.layer[i].parameters():
                 param.requires_grad = True
 
+    def unfreeze_m3ae_layers(self, layers_to_unfreeze):
+        """Unfreeze specified layers or components of M3AE."""
+        for name, param in self.m3ae.named_parameters():
+            if any(layer_name in name for layer_name in layers_to_unfreeze):
+                param.requires_grad = True
+
     def forward(self, batch, answer_tokens=None):
         # Extract multi-modal features using M3AE
         m3ae_output = self.m3ae.infer(batch, mask_text=False, mask_image=False)

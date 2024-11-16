@@ -24,7 +24,10 @@ def main(_config):
     dm = MTDataModule(_config, dist=True)
 
     # Module
-    model = DistilBERTVQA(_config)
+    model = DistilBERTVQA(_config, freeze_distilbert_layers=True, freeze_m3ae=True)
+
+    # model.unfreeze_top_layers(num_layers=2) # Unfreeze the top 2 layers of DistilBERT
+    # model.unfreeze_m3ae_layers( ["multi_modal_vision_layers.5"] )  # Unfreeze list of M3AE layers
 
     # Loggers
     os.makedirs(_config["log_dir"], exist_ok=True)
@@ -72,7 +75,9 @@ def main(_config):
         log_every_n_steps=10,
         fast_dev_run=_config["fast_dev_run"],
         val_check_interval=_config["val_check_interval"],
-        default_root_dir=_config["default_root_dir"]
+        default_root_dir=_config["default_root_dir"],
+        gradient_clip_val=1.0,  # add gradient clipping to help prevent catastrophic forgetting
+        gradient_clip_algorithm="norm"
     )
 
     if not _config["test_only"]:
