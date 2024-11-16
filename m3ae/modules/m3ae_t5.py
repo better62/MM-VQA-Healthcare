@@ -5,7 +5,7 @@ from transformers import T5Tokenizer, T5ForConditionalGeneration
 from torch.nn import functional as F
 
 from m3ae.modules import M3AETransformerSS
-
+https://github.com/pulls
 class T5VQA(pl.LightningModule):
     def __init__(self, m3ae_config, max_answer_length=80, freeze_m3ae=True, freeze_t5_layers=True):
         super().__init__()
@@ -42,14 +42,23 @@ class T5VQA(pl.LightningModule):
             param.requires_grad = False
         
         # Unfreeze top N layers of encoder
-        for i in range(self.t5.config.num_layers - num_layers, self.t5.config.num_layers):
-            for param in self.t5.encoder.block[i].parameters():
+        for i in range(len(self.t5.encoder.block) - num_layers, len(self.t5.encoder.block)):
+            for param in self.t5.encoder.block[i].layer[0].parameters():
                 param.requires_grad = True
-                
+
         # Unfreeze top N layers of decoder
-        for i in range(self.t5.config.num_decoder_layers - num_layers, self.t5.config.num_decoder_layers):
-            for param in self.t5.decoder.block[i].parameters():
+        for i in range(len(self.t5.decoder.block) - num_layers, len(self.t5.decoder.block)):
+            # Self attention
+            for param in self.t5.decoder.block[i].layer[0].parameters():
                 param.requires_grad = True
+            # Cross attention
+            for param in self.t5.decoder.block[i].layer[1].parameters():
+                param.requires_grad = True
+        
+        # To see which layers are frozen
+        # print("Called unfreeze_layers(" + str(num_layers) + ") on t5")
+        # for param in self.t5.parameters():
+        #     print(param.requires_grad)
 
     def prepare_inputs(self, batch):
         # Extract multi-modal features using M3AE
