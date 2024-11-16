@@ -40,11 +40,6 @@ class T5VQA(pl.LightningModule):
         """Unfreeze the top N layers of T5 encoder and decoder"""
         for param in self.t5.parameters():
             param.requires_grad = False
-        
-        # Unfreeze top N layers of encoder
-        for i in range(len(self.t5.encoder.block) - num_layers, len(self.t5.encoder.block)):
-            for param in self.t5.encoder.block[i].layer[0].parameters():
-                param.requires_grad = True
 
         # Unfreeze top N layers of decoder
         for i in range(len(self.t5.decoder.block) - num_layers, len(self.t5.decoder.block)):
