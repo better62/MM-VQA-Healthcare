@@ -98,45 +98,45 @@ def epoch_wrapup(pl_module, test=False):
         the_metric += ir_r1.item() + tr_r1.item()
 
     
-        elif loss_name == "cls":
-            value = getattr(pl_module, f"{phase}_{loss_name}_accuracy").compute()
-            pl_module.log(f"{loss_name}/{phase}/accuracy_epoch", value)
-            getattr(pl_module, f"{phase}_{loss_name}_accuracy").reset()
-            pl_module.log(f"{loss_name}/{phase}/loss_epoch", getattr(pl_module, f"{phase}_{loss_name}_loss").compute())
-            getattr(pl_module, f"{phase}_{loss_name}_loss").reset()
+    elif loss_name == "cls":
+        value = getattr(pl_module, f"{phase}_{loss_name}_accuracy").compute()
+        pl_module.log(f"{loss_name}/{phase}/accuracy_epoch", value)
+        getattr(pl_module, f"{phase}_{loss_name}_accuracy").reset()
+        pl_module.log(f"{loss_name}/{phase}/loss_epoch", getattr(pl_module, f"{phase}_{loss_name}_loss").compute())
+        getattr(pl_module, f"{phase}_{loss_name}_loss").reset()
 
-        elif loss_name == "irtr":
-            value = getattr(pl_module, f"{phase}_irtr_loss").compute()
-            pl_module.log(f"{loss_name}/{phase}/irtr_loss_epoch", value)
-            getattr(pl_module, f"{phase}_irtr_loss").reset()
-            value = -value
+    elif loss_name == "irtr":
+        value = getattr(pl_module, f"{phase}_irtr_loss").compute()
+        pl_module.log(f"{loss_name}/{phase}/irtr_loss_epoch", value)
+        getattr(pl_module, f"{phase}_irtr_loss").reset()
+        value = -value
 
-        elif loss_name == "itm":
-            value = getattr(pl_module, f"{phase}_{loss_name}_accuracy").compute()
-            pl_module.log(f"{loss_name}/{phase}/accuracy_epoch", value)
-            getattr(pl_module, f"{phase}_{loss_name}_accuracy").reset()
-            pl_module.log(f"{loss_name}/{phase}/loss_epoch", getattr(pl_module, f"{phase}_{loss_name}_loss").compute())
-            getattr(pl_module, f"{phase}_{loss_name}_loss").reset()
+    elif loss_name == "itm":
+        value = getattr(pl_module, f"{phase}_{loss_name}_accuracy").compute()
+        pl_module.log(f"{loss_name}/{phase}/accuracy_epoch", value)
+        getattr(pl_module, f"{phase}_{loss_name}_accuracy").reset()
+        pl_module.log(f"{loss_name}/{phase}/loss_epoch", getattr(pl_module, f"{phase}_{loss_name}_loss").compute())
+        getattr(pl_module, f"{phase}_{loss_name}_loss").reset()
 
-        elif loss_name == "mim":
-            value = -getattr(pl_module, f"{phase}_{loss_name}_loss").compute()
-            pl_module.log(f"{loss_name}/{phase}/accuracy_epoch", value)
-            pl_module.log(f"{loss_name}/{phase}/loss_epoch", - value)
-            getattr(pl_module, f"{phase}_{loss_name}_loss").reset()
+    elif loss_name == "mim":
+        value = -getattr(pl_module, f"{phase}_{loss_name}_loss").compute()
+        pl_module.log(f"{loss_name}/{phase}/accuracy_epoch", value)
+        pl_module.log(f"{loss_name}/{phase}/loss_epoch", - value)
+        getattr(pl_module, f"{phase}_{loss_name}_loss").reset()
 
-        elif loss_name == "mlm":
-            value = getattr(pl_module, f"{phase}_{loss_name}_accuracy").compute()
-            pl_module.log(f"{loss_name}/{phase}/accuracy_epoch", value)
-            getattr(pl_module, f"{phase}_{loss_name}_accuracy").reset()
-            pl_module.log(
-                f"{loss_name}/{phase}/loss_epoch",
-                getattr(pl_module, f"{phase}_{loss_name}_loss").compute(),
-            )
-            getattr(pl_module, f"{phase}_{loss_name}_loss").reset()
-        else:
-            raise ValueError
+    elif loss_name == "mlm":
+        value = getattr(pl_module, f"{phase}_{loss_name}_accuracy").compute()
+        pl_module.log(f"{loss_name}/{phase}/accuracy_epoch", value)
+        getattr(pl_module, f"{phase}_{loss_name}_accuracy").reset()
+        pl_module.log(
+            f"{loss_name}/{phase}/loss_epoch",
+            getattr(pl_module, f"{phase}_{loss_name}_loss").compute(),
+        )
+        getattr(pl_module, f"{phase}_{loss_name}_loss").reset()
+    else:
+        raise ValueError
 
-        the_metric += value
+    the_metric += value
 
     pl_module.log(f"{phase}/the_metric", the_metric)
 
