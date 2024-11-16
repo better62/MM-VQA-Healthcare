@@ -1,11 +1,10 @@
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
-from transformers import T5Tokenizer, T5Model
+from transformers import T5Tokenizer, T5ForConditionalGeneration
 from torch.nn import functional as F
 
 from m3ae.modules import M3AETransformerSS
-
 
 class T5VQA(pl.LightningModule):
     def __init__(self, m3ae_config, max_answer_length=80, freeze_m3ae=True, freeze_t5_layers=True):
@@ -20,9 +19,9 @@ class T5VQA(pl.LightningModule):
             for param in self.m3ae.parameters():
                 param.requires_grad = False
         
-        # Initialize T5
-        self.tokenizer = T5Tokenizer.from_pretrained('google-t5/t5-small')
-        self.t5 = T5Model.from_pretrained('google-t5/t5-small')
+        # Initialize T5 with generation capabilities
+        self.tokenizer = T5Tokenizer.from_pretrained('t5-small')
+        self.t5 = T5ForConditionalGeneration.from_pretrained('t5-small')
 
         # Freeze T5 layers if specified
         if freeze_t5_layers:
@@ -35,25 +34,24 @@ class T5VQA(pl.LightningModule):
             self.t5.config.hidden_size
         )
         
-        # Token prediction head
-        self.token_predictor = nn.Linear(
-            self.t5.config.hidden_size,
-            self.tokenizer.vocab_size
-        )
-        
         self.max_answer_length = max_answer_length
 
     def unfreeze_top_layers(self, num_layers=2):
-        """Unfreeze the top N layers of T5"""
+        """Unfreeze the top N layers of T5 encoder and decoder"""
         for param in self.t5.parameters():
             param.requires_grad = False
         
-        # T5 has 6 layers, so we'll unfreeze from the top
-        for i in range(6 - num_layers, 6):
-            for param in self.t5.transformer.layer[i].parameters():
+        # Unfreeze top N layers of encoder
+        for i in range(self.t5.config.num_layers - num_layers, self.t5.config.num_layers):
+            for param in self.t5.encoder.block[i].parameters():
+                param.requires_grad = True
+                
+        # Unfreeze top N layers of decoder
+        for i in range(self.t5.config.num_decoder_layers - num_layers, self.t5.config.num_decoder_layers):
+            for param in self.t5.decoder.block[i].parameters():
                 param.requires_grad = True
 
-    def forward(self, batch, answer_tokens=None):
+    def prepare_inputs(self, batch):
         # Extract multi-modal features using M3AE
         m3ae_output = self.m3ae.infer(batch, mask_text=False, mask_image=False)
         multi_modal_features = m3ae_output["multi_modal_cls_feats"]
@@ -61,123 +59,85 @@ class T5VQA(pl.LightningModule):
         # Project features to T5 dimension
         projected_features = self.feature_projection(multi_modal_features)
         
-        # Get T5 embeddings for the question
+        # Tokenize questions
         question_tokens = self.tokenizer(
-            batch["text_ids"], 
-            padding=True, 
+            batch["text_ids"],
+            padding=True,
+            truncation=True,
             return_tensors="pt"
         ).to(multi_modal_features.device)
         
-        question_embeddings = self.t5(**question_tokens).last_hidden_state
-        
-        # During training, include partial answer for next token prediction
-        if answer_tokens is not None:
-            answer_embeddings = self.t5(
-                input_ids=answer_tokens
-            ).last_hidden_state
-            
-            # Combine features, question, and partial answer
-            combined_features = torch.cat([
-                projected_features.unsqueeze(1),
-                question_embeddings,
-                answer_embeddings
-            ], dim=1)
-        else:
-            # For inference, only use features and question
-            combined_features = torch.cat([
-                projected_features.unsqueeze(1),
-                question_embeddings
-            ], dim=1)
-        
-        # Get token predictions
-        token_logits = self.token_predictor(combined_features)
-        
-        return token_logits
-
-    def generate_answer(self, batch, num_beams=4):
-        device = next(self.parameters()).device
-        batch_size = len(batch["text_ids"])
-        
-        # Initialize with start tokens
-        current_sequences = torch.full(
-            (batch_size * num_beams, 1),
-            self.tokenizer.bos_token_id,
-            dtype=torch.long,
-            device=device
+        # Get T5 question embeddings
+        encoder_outputs = self.t5.encoder(
+            **question_tokens,
+            return_dict=True
         )
         
-        beam_scores = torch.zeros(batch_size * num_beams, device=device)
+        # Combine projected features with question embeddings
+        combined_hidden_states = torch.cat([
+            projected_features.unsqueeze(1),
+            encoder_outputs.last_hidden_state
+        ], dim=1)
         
-        for step in range(self.max_answer_length):
-            # Get predictions for next token
-            logits = self(batch, current_sequences)[:, -1, :]
-            next_token_scores = F.log_softmax(logits, dim=-1)
+        return {
+            "encoder_outputs": (combined_hidden_states,),
+            "attention_mask": torch.ones(
+                combined_hidden_states.shape[:2],
+                device=combined_hidden_states.device
+            )
+        }
+
+    def forward(self, batch, labels=None):
+        # Prepare encoder inputs with combined visual and textual features
+        model_inputs = self.prepare_inputs(batch)
+        
+        if labels is not None:
+            # Training mode
+            label_tokens = self.tokenizer(
+                labels,
+                padding=True,
+                truncation=True,
+                return_tensors="pt"
+            ).input_ids.to(self.device)
             
-            # Add beam scores
-            next_token_scores = next_token_scores + beam_scores.unsqueeze(1)
-            
-            # Reshape for beam search
-            vocab_size = next_token_scores.size(-1)
-            next_token_scores = next_token_scores.view(
-                batch_size, num_beams * vocab_size
+            # Forward pass through T5 with labels for training
+            outputs = self.t5(
+                labels=label_tokens,
+                encoder_outputs=model_inputs["encoder_outputs"],
+                attention_mask=model_inputs["attention_mask"],
+                return_dict=True
+            )
+        else:
+            # Inference mode
+            outputs = self.t5.generate(
+                encoder_outputs=model_inputs["encoder_outputs"],
+                attention_mask=model_inputs["attention_mask"],
+                max_length=self.max_answer_length,
+                num_beams=4,
+                early_stopping=True,
+                pad_token_id=self.tokenizer.pad_token_id,
+                eos_token_id=self.tokenizer.eos_token_id,
+                return_dict_in_generate=True,
+                output_scores=True
             )
             
-            # Get top-k next tokens and their scores
-            next_scores, next_tokens = next_token_scores.topk(
-                num_beams, dim=1, largest=True, sorted=True
-            )
-            
-            # Update sequences
-            next_sequences = torch.cat([
-                current_sequences,
-                next_tokens.view(-1, 1)
-            ], dim=1)
-            
-            # Update beam scores
-            beam_scores = next_scores.view(-1)
-            current_sequences = next_sequences
-            
-            # Check for end of sequence
-            if (current_sequences == self.tokenizer.eos_token_id).any(dim=-1).all():
-                break
+        return outputs
+
+    def generate_answer(self, batch):
+        outputs = self(batch)
         
-        # Get best sequence for each batch
-        final_sequences = current_sequences.view(batch_size, num_beams, -1)
-        best_sequences = final_sequences[:, 0, :]  # Take top beam
-        
-        # Decode answers
+        # Decode generated sequences
         answers = self.tokenizer.batch_decode(
-            best_sequences,
-            skip_special_tokens=True
+            outputs.sequences,
+            skip_special_tokens=True,
+            clean_up_tokenization_spaces=True
         )
         
         return answers
 
     def training_step(self, batch, batch_idx):
-        # Get target answers
-        target_answers = batch["answers"]
-        target_tokens = self.tokenizer(
-            target_answers,
-            padding=True,
-            return_tensors="pt"
-        ).input_ids.to(self.device)
-        
-        # For each position, predict next token
-        loss = 0
-        for i in range(target_tokens.size(1) - 1):
-            input_tokens = target_tokens[:, :i+1]
-            logits = self(batch, input_tokens)
-            
-            # Calculate loss for next token prediction
-            next_token_logits = logits[:, -1, :]
-            next_token_targets = target_tokens[:, i+1]
-            
-            loss += F.cross_entropy(
-                next_token_logits,
-                next_token_targets,
-                ignore_index=self.tokenizer.pad_token_id
-            )
-        
+        outputs = self(batch, labels=batch["answers"])
+        loss = outputs.loss
         self.log("train_loss", loss)
         return loss
 
@@ -188,17 +148,16 @@ class T5VQA(pl.LightningModule):
         
         for name, param in self.named_parameters():
             if param.requires_grad:
-                if 'feature_projection' in name or 'token_predictor' in name:
+                if 'feature_projection' in name:
                     new_params.append(param)
                 else:
                     pretrained_params.append(param)
         
         optimizer = torch.optim.AdamW([
-            {'params': pretrained_params, 'lr': 1e-5},  # Lower learning rate for pretrained layers
-            {'params': new_params, 'lr': 5e-5}  # Higher learning rate for new layers
+            {'params': pretrained_params, 'lr': 1e-5},
+            {'params': new_params, 'lr': 5e-5}
         ])
         
-        # Optional: Add learning rate scheduler
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, T_max=10, eta_min=1e-6
         )

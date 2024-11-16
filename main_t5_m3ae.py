@@ -25,6 +25,7 @@ def main(_config):
 
     # Module
     model = T5VQA(_config)
+    model.unfreeze_top_layers(num_layers=1) # Unfreeze the top layer
 
     # Loggers
     os.makedirs(_config["log_dir"], exist_ok=True)

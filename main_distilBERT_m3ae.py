@@ -26,7 +26,7 @@ def main(_config):
     # Module
     model = DistilBERTVQA(_config, freeze_distilbert_layers=True, freeze_m3ae=True)
 
-    # model.unfreeze_top_layers(num_layers=2) # Unfreeze the top 2 layers of DistilBERT
+    # model.unfreeze_top_layers(num_layers=1) # Unfreeze the top 2 layers of DistilBERT
     # model.unfreeze_m3ae_layers( ["multi_modal_vision_layers.5"] )  # Unfreeze list of M3AE layers
 
     # Loggers
@@ -50,7 +50,7 @@ def main(_config):
     callbacks = [checkpoint_callback, lr_callback]
 
     # Training Hyper-Parameters
-    num_gpus = (_config["num_gpus"] if isinstance(_config["num_gpus"], int) else len(_config["num_gpus"]))
+    num_gpus = 1 #(_config["num_gpus"] if isinstance(_config["num_gpus"], int) else len(_config["num_gpus"]))
     grad_steps = max(_config["batch_size"] // (_config["per_gpu_batchsize"] * num_gpus * _config["num_nodes"]), 1)
     max_steps = _config["max_steps"] if _config["max_steps"] is not None else None
     max_epochs = _config["max_epoch"] if max_steps is None else 1000
