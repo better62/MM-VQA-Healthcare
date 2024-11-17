@@ -26,7 +26,7 @@ def main(_config):
     # Module
     model = DistilBERTVQA(_config, freeze_distilbert_layers=True, freeze_m3ae=True)
 
-    # model.unfreeze_top_layers(num_layers=1) # Unfreeze the top 2 layers of DistilBERT
+    model.unfreeze_top_layers(num_layers=1) # Unfreeze the top 1 layers of DistilBERT
     # model.unfreeze_m3ae_layers( ["multi_modal_vision_layers.5"] )  # Unfreeze list of M3AE layers
 
     # Loggers

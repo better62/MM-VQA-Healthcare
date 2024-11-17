@@ -1,10 +1,12 @@
+import os
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
-from transformers import DistilBertTokenizer, DistilBertModel
 from torch.nn import functional as F
+from transformers import DistilBertTokenizer, DistilBertModel
 
 from m3ae.modules import M3AETransformerSS
+
 
 class DistilBERTVQA(pl.LightningModule):
     def __init__(self, m3ae_config, max_answer_length=80, freeze_m3ae=True, freeze_distilbert_layers=True):
@@ -20,8 +22,9 @@ class DistilBERTVQA(pl.LightningModule):
                 param.requires_grad = False
         
         # Initialize DistilBERT
-        self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
-        self.distilbert = DistilBertModel.from_pretrained('distilbert-base-uncased')
+        local_model_path = os.path.abspath("downloaded/distilbert-base-uncased")
+        self.tokenizer = DistilBertTokenizer.from_pretrained(local_model_path, local_files_only=True)
+        self.distilbert = DistilBertModel.from_pretrained(local_model_path, local_files_only=True)
 
         # Freeze DistilBERT layers if specified
         if freeze_distilbert_layers:
