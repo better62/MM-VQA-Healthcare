@@ -72,6 +72,11 @@ def config():
     lr_multiplier_head = 5  # multiply lr for prediction heads
     lr_multiplier_multi_modal = 5  # multiply lr for the multi-modal module
 
+    # T5 Model Setting
+    t5_model_name = "t5-small"  # 사용할 T5 모델 이름, 예: t5-small, t5-base, t5-large 등
+    t5_max_length = 25  # 생성할 텍스트의 최대 길이 설정
+    t5_generation = True  # T5 텍스트 생성 활성화 여부    
+
     # Downstream Setting
     get_recall_metric = False
 
@@ -86,7 +91,8 @@ def config():
     data_root = ""
     log_dir = "result"
     per_gpu_batchsize = 0
-    num_gpus = 8
+    use_ddp = False
+    num_gpus = 1
     num_nodes = 1
     load_path = ""
     num_workers = 8
@@ -96,6 +102,8 @@ def config():
     label_column_name = ""
     melinda_label_size = {"i_meth": 85, "p_meth": 45, "i_meth_label": 15, "p_meth_label": 7}
 
+    #WANDB setting
+    api_key = "20be045acce9a973c8a3780aaba86927c1fc5b83"
 
 @ex.named_config
 def task_pretrain_m3ae():
@@ -129,7 +137,7 @@ def task_pretrain_m3ae():
 def task_finetune_vqa_ehr_xqa():
     exp_name = "task_finetune_vqa_ehr_xqa"
     datasets = ["vqa_ehr_xqa"]
-    loss_names = _loss_names({"vqa": 1})
+    loss_names = _loss_names({"vqa": 1}) 
     batch_size = 64
     max_epoch = 50
     max_steps = 1000
