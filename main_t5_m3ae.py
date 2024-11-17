@@ -3,6 +3,7 @@ import os
 import resource
 import gc
 import torch
+import wandb
 
 import pytorch_lightning as pl
 
@@ -21,11 +22,15 @@ def main(_config):
     pl.seed_everything(_config["seed"])
 
     # Data modules
-    dm = MTDataModule(_config, dist=True)
+    # update dist param to be optional
+    #dm = MTDataModule(_config, dist=True)
+    dm = MTDataModule(_config, dist=_config["use_ddp"]) 
+
 
     # Module
     model = T5VQA(_config)
-    model.unfreeze_top_layers(num_layers=1) # Unfreeze the top layer
+
+    wandb.login(key="20be045acce9a973c8a3780aaba86927c1fc5b83") # API Key is in your wandb account, under settings (wandb.ai/settings)    
 
     # Loggers
     os.makedirs(_config["log_dir"], exist_ok=True)
@@ -58,6 +63,7 @@ def main(_config):
     torch.cuda.empty_cache()
 
     # Trainer
+    os.environ["CUDA_VISIBLE_DEVICES"] = "4"  # device num hopely
     trainer = pl.Trainer(
         # gpus=num_gpus,
         gpus=[4],
