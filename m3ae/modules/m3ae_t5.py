@@ -1,3 +1,4 @@
+import math
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
@@ -7,10 +8,11 @@ from torch.nn import functional as F
 from m3ae.modules import M3AETransformerSS
 
 class T5VQA(pl.LightningModule):
-    def __init__(self, m3ae_config, max_answer_length=80, freeze_m3ae=True, freeze_t5_layers=True):
+    def __init__(self, m3ae_config, max_answer_length=80, freeze_m3ae=True, freeze_t5_layers=True, projection_downsample_factor=4):
         super().__init__()
         self.save_hyperparameters()
-        
+        self.projection_downsample_factor = projection_downsample_factor
+
         # Initialize M3AE model
         self.m3ae = M3AETransformerSS(m3ae_config)
 
@@ -31,7 +33,7 @@ class T5VQA(pl.LightningModule):
         # Projection layer for M3AE features
         self.feature_projection = nn.Linear(
             m3ae_config["hidden_size"] * 2,  # M3AE outputs concatenated features
-            self.t5.config.hidden_size
+            self.t5.config.hidden_size // self.projection_downsample_factor
         )
         
         self.max_answer_length = max_answer_length
@@ -55,45 +57,69 @@ class T5VQA(pl.LightningModule):
         # for param in self.t5.parameters():
         #     print(param.requires_grad)
 
+    def create_positional_encoding(seq_length, hidden_size):
+        """Create absolute positional encoding for T5"""
+        position = torch.arange(seq_length, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, hidden_size, 2).float() * (-math.log(10000.0) / hidden_size))
+        pe = torch.zeros(seq_length, hidden_size)
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        return pe.to(self.device)
+
     def prepare_inputs(self, batch):
-        # Extract multi-modal features using M3AE
+
+        # get multi_modal_cls_feats
         m3ae_output = self.m3ae.infer(batch, mask_text=False, mask_image=False)
         multi_modal_features = m3ae_output["multi_modal_cls_feats"]
         
-        # Project features to T5 dimension
-        projected_features = self.feature_projection(multi_modal_features)
+        # Prepare context and question prefixes
+        context_prefix = "context:"
+        question_prefix = "question:"
         
-        # Tokenize questions
-        question_tokens = self.tokenizer(
-            batch["text_ids"],
-            padding=True,
-            truncation=True,
-            return_tensors="pt"
-        ).to(multi_modal_features.device)
+        # Tokenize prefixes
+        tokenized_context_prefix = self.tokenizer(context_prefix, return_tensors="pt", add_special_tokens=False).input_ids.to(self.device)
+        tokenized_question_prefix = self.tokenizer(question_prefix, return_tensors="pt", add_special_tokens=False).input_ids.to(self.device)
         
-        # Get T5 question embeddings
-        encoder_outputs = self.t5.encoder(
-            **question_tokens,
-            return_dict=True
-        )
+        # Process each question individually
+        t5_inputs = []
+        for i, question in enumerate(batch["text"]):
+            # Get the corresponding multi-modal feature for this question
+            projected_feature = self.feature_projection(multi_modal_features[i:i+1])
+            
+            # Tokenize the current question
+            tokenized_question = self.tokenizer(
+                question, 
+                return_tensors="pt", 
+                padding=True, 
+                truncation=True, 
+                max_length=self.hparams.config["max_text_len"]
+            ).input_ids.to(self.device)
+            
+            # Concatenate inputs in T5's expected format
+            t5_input = torch.cat([
+                tokenized_context_prefix, 
+                projected_feature, 
+                tokenized_question_prefix, 
+                tokenized_question
+            ], dim=1)
+            
+            # Add positional encoding
+            seq_length = t5_input.shape[1]
+            positional_encoding = create_positional_encoding(seq_length, self.t5.config.hidden_size)
+            t5_input_with_pe = t5_input + positional_encoding
+            
+            t5_inputs.append(t5_input_with_pe)
+    
+        # Stack the inputs if needed
+        t5_inputs = torch.stack(t5_inputs)
         
-        # Combine projected features with question embeddings
-        combined_hidden_states = torch.cat([
-            projected_features.unsqueeze(1),
-            encoder_outputs.last_hidden_state
-        ], dim=1)
-        
-        return {
-            "encoder_outputs": (combined_hidden_states,),
-            "attention_mask": torch.ones(
-                combined_hidden_states.shape[:2],
-                device=combined_hidden_states.device
-            )
-        }
+        return t5_inputs
 
     def forward(self, batch, labels=None):
         # Prepare encoder inputs with combined visual and textual features
         model_inputs = self.prepare_inputs(batch)
+
+        encoder_outputs = self.t5.encoder(inputs_embeds=model_inputs)
         
         if labels is not None:
             # Training mode
@@ -107,14 +133,14 @@ class T5VQA(pl.LightningModule):
             # Forward pass through T5 with labels for training
             outputs = self.t5(
                 labels=label_tokens,
-                encoder_outputs=model_inputs["encoder_outputs"],
+                encoder_outputs=encoder_outputs,
                 attention_mask=model_inputs["attention_mask"],
                 return_dict=True
             )
         else:
             # Inference mode
             outputs = self.t5.generate(
-                encoder_outputs=model_inputs["encoder_outputs"],
+                encoder_outputs=encoder_outputs,
                 attention_mask=model_inputs["attention_mask"],
                 max_length=self.max_answer_length,
                 num_beams=4,
