@@ -66,7 +66,7 @@ def main(_config):
     os.environ["CUDA_VISIBLE_DEVICES"] = "4"  # device num hopely
     trainer = pl.Trainer(
         # gpus=num_gpus,
-        gpus=[4],
+        gpus=[0],
         num_nodes=_config["num_nodes"],
         precision=_config["precision"],
         # distributed_backend="ddp",  
