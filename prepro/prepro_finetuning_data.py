@@ -239,8 +239,8 @@ def prepro_irtr_roco(min_length=3):
 
 
 if __name__ == '__main__':
-    prepro_vqa_ehr_xqa()
-    # prepro_vqa_vqa_rad()
+    # prepro_vqa_ehr_xqa()
+    prepro_vqa_vqa_rad()
     # prepro_vqa_slack()
     # prepro_vqa_medvqa2019()
     # prepro_cls_melinda()
