@@ -57,7 +57,7 @@ class T5VQA(pl.LightningModule):
         # for param in self.t5.parameters():
         #     print(param.requires_grad)
 
-    def create_positional_encoding(seq_length, hidden_size):
+    def create_positional_encoding(self, seq_length, hidden_size):
         """Create absolute positional encoding for T5"""
         position = torch.arange(seq_length, dtype=torch.float).unsqueeze(1)
         div_term = torch.exp(torch.arange(0, hidden_size, 2).float() * (-math.log(10000.0) / hidden_size))
@@ -103,7 +103,12 @@ class T5VQA(pl.LightningModule):
                 tokenized_question
             ], dim=1)
             
-            t5_inputs.append(t5_input)
+            # Add positional encoding
+            seq_length = t5_input.shape[1]
+            positional_encoding = create_positional_encoding(seq_length, self.t5.config.hidden_size)
+            t5_input_with_pe = t5_input + positional_encoding
+            
+            t5_inputs.append(t5_input_with_pe)
     
         # Stack the inputs if needed
         t5_inputs = torch.stack(t5_inputs)
