@@ -4,7 +4,7 @@ from .base_datamodule import BaseDataModule
 from ..datasets import VQAEHRXQADataset
 
 
-class VQAEHRXQADataModule(BaseDataModule):
+class VQAEHRXQADataModule(BaseDataModule): 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -19,7 +19,7 @@ class VQAEHRXQADataModule(BaseDataModule):
     def setup(self, stage):
         super().setup(stage)
 
-        # add by soomin 1120 (for fine tuning)
+'''        # add by soomin 1120 (for fine tuning)
         train_answers = self.train_dataset.table["answers"].to_pandas().tolist()
         val_answers = self.val_dataset.table["answers"].to_pandas().tolist()
         train_labels = self.train_dataset.table["answer_labels"].to_pandas().tolist()
@@ -38,3 +38,4 @@ class VQAEHRXQADataModule(BaseDataModule):
         for k, v in sorted_a2i:
             self.id2answer[v] = k        
       
+'''

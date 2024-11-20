@@ -3,10 +3,14 @@ from .base_dataset import BaseDataset
 
 class VQAEHRXQADataset(BaseDataset):
     def __init__(self, *args, split="", **kwargs):
-        assert split in ["test"]
+        assert split in ['train','val',"test"]
         self.split = split
-
-        if split == "test":
+        
+        if split == "train":
+            names = ["vqa_ehr_xqa_train"]
+        elif split == "val":
+            names = ["vqa_ehr_xqa_val"]
+        elif split == "test":
             names = ["vqa_ehr_xqa_test"]
 
         super().__init__(

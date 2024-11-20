@@ -9,13 +9,13 @@ from m3ae.modules import M3AETransformerSS
 from m3ae.modules import m3ae_t5_utils
 
 class T5VQA(pl.LightningModule):
-    def __init__(self, m3ae_config, max_answer_length=80, freeze_m3ae=True, freeze_t5_layers=True, projection_downsample_factor=4):
+    def __init__(self, config, max_answer_length=80, freeze_m3ae=True, freeze_t5_layers=True, projection_downsample_factor=4):
         super().__init__()
         self.save_hyperparameters()
         self.projection_downsample_factor = projection_downsample_factor
 
         # Initialize M3AE model
-        self.m3ae = M3AETransformerSS(m3ae_config)
+        self.m3ae = M3AETransformerSS(config)
 
         # Freeze M3AE if specified
         if freeze_m3ae:
@@ -33,7 +33,7 @@ class T5VQA(pl.LightningModule):
         
         # Projection layer for M3AE features
         self.feature_projection = nn.Linear(
-            m3ae_config["hidden_size"] * 2,  # M3AE outputs concatenated features
+            config["hidden_size"] * 2,  # M3AE outputs concatenated features
             self.t5.config.hidden_size // self.projection_downsample_factor
         )
         
@@ -106,7 +106,7 @@ class T5VQA(pl.LightningModule):
             
             # Add positional encoding
             seq_length = t5_input.shape[1]
-            positional_encoding = create_positional_encoding(seq_length, self.t5.config.hidden_size)
+            positional_encoding = self.create_positional_encoding(seq_length, self.t5.config.hidden_size)
             t5_input_with_pe = t5_input + positional_encoding
             
             t5_inputs.append(t5_input_with_pe)
