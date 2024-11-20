@@ -19,7 +19,10 @@ def get_pretrained_tokenizer(from_pretrained):
                 BertTokenizerFast.from_pretrained(from_pretrained, do_lower_case="uncased" in from_pretrained)
         torch.distributed.barrier()
     if 'roberta' in from_pretrained:
-        return RobertaTokenizerFast.from_pretrained(from_pretrained)
+        #return RobertaTokenizerFast.from_pretrained(from_pretrained)
+        #local_path = "/graduate/graduate/IDL/Project/MM-VQA-Healthcare/m3ae/downloaded/roberta-base"
+        return RobertaTokenizerFast.from_pretrained(from_pretrained, local_files_only=True)
+
     return BertTokenizerFast.from_pretrained(from_pretrained, do_lower_case="uncased" in from_pretrained)
 
 
