@@ -70,7 +70,7 @@ class T5VQA(pl.LightningModule):
 
         # get multi_modal_cls_feats
         m3ae_output = self.m3ae.infer(batch, mask_text=False, mask_image=False)
-        multi_modal_features = m3ae_output["multi_modal_cls_feats"]
+        multi_modal_features = m3ae_output["multi_modal_cls_feats"] # 1 x 1536
         
         # Prepare context and question prefixes
         context_prefix = "context:"
@@ -119,7 +119,7 @@ class T5VQA(pl.LightningModule):
         # Prepare encoder inputs with combined visual and textual features
         model_inputs = self.prepare_inputs(batch)
 
-        encoder_outputs = self.t5.encoder(inputs_embeds=model_inputs)
+        encoder_outputs = self.t5.encoder(inputs_embeds=model_inputs) # batch size x 512
         
         if labels is not None:
             # Training mode
@@ -166,10 +166,29 @@ class T5VQA(pl.LightningModule):
         return answers
 
     def training_step(self, batch, batch_idx):
-        outputs = self(batch, labels=batch["answers"])
-        loss = outputs.loss
-        self.log("train_loss", loss)
-        return loss
+        m3ae_t5_utils.set_task(self)
+        output = self(batch)
+        total_loss = sum([v * self.hparams.config["loss_names"][k.replace("_loss", "")]
+                          for k, v in output.items() if "loss" in k])
+
+        return total_loss
+
+    def training_epoch_end(self, outs):
+        m3ae_t5_utils.epoch_wrapup(self)
+
+    def validation_step(self, batch, batch_idx):
+        m3ae_t5_utils.set_task(self)
+        output = self(batch)
+
+    def validation_epoch_end(self, outs):
+        m3ae_t5_utils.epoch_wrapup(self)
+
+    def test_step(self, batch, batch_idx):
+        m3ae_t5_utils.set_task(self)
+        output = self(batch, test=True)
+
+    def test_epoch_end(self, outs):
+        m3ae_t5_utils.epoch_wrapup(self, test=True)
 
     def configure_optimizers(self):
         # Collect parameters by groups
