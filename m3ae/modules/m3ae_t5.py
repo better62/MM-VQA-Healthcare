@@ -6,6 +6,7 @@ from transformers import T5Tokenizer, T5ForConditionalGeneration
 from torch.nn import functional as F
 
 from m3ae.modules import M3AETransformerSS
+from m3ae.modules import m3ae_t5_utils
 
 class T5VQA(pl.LightningModule):
     def __init__(self, m3ae_config, max_answer_length=80, freeze_m3ae=True, freeze_t5_layers=True, projection_downsample_factor=4):
