@@ -4,34 +4,111 @@ from transformers import get_polynomial_decay_schedule_with_warmup, get_cosine_s
 from transformers.optimization import AdamW
 
 from .objectives import compute_irtr_recall
-from ..gadgets.my_metrics import Accuracy, Scalar, ROUGE1Score, ROUGE2Score, BLEUScore
+from ..gadgets.my_metrics import VQARADScore, Accuracy, Scalar, ROUGE1Score, ROUGE2Score, BLEUScore
 
 def set_metrics(pl_module):
     for split in ["train", "val", "test"]:
-        for v in pl_module.hparams.config["loss_names"].items():
+        for k, v in pl_module.hparams.m3ae_config["loss_names"].items():
             if v <= 0:
                 continue
-            setattr(pl_module, f"{split}_rouge1_score", ROUGE1Score())
-            setattr(pl_module, f"{split}_rouge2_score", ROUGE2Score())
-            setattr(pl_module, f"{split}_bleu_score", BLEUScore())
-            setattr(pl_module, f"{split}_loss", Scalar())
+            if split == "train":
+                setattr(pl_module, f"train_{k}_score", VQARADScore())
+                setattr(pl_module, f"train_{k}_loss", Scalar())
+            else:
+                setattr(pl_module, f"val_{k}_score", VQARADScore())
+                setattr(pl_module, f"val_{k}_rouge1_score", ROUGE1Score())
+                setattr(pl_module, f"val_{k}_rouge2_score", ROUGE2Score())
+                setattr(pl_module, f"val_{k}_bleu_score", BLEUScore())
+                setattr(pl_module, f"val_{k}_loss", Scalar())
+
+                setattr(pl_module, f"test_{k}_score", VQARADScore())
+                setattr(pl_module, f"test_{k}_rouge1_score",ROUGE1Score())
+                setattr(pl_module, f"test_{k}_rouge2_score",ROUGE2Score())
+                setattr(pl_module, f"test_{k}_bleu_score", BLEUScore())
+                setattr(pl_module, f"test_{k}_loss", Scalar())
 
 def epoch_wrapup(pl_module, test=False):
     phase = "test" if test else "train" if pl_module.training else "val"
+
     the_metric = 0
 
-    for weight in pl_module.hparams.config["loss_names"].items():
-        if weight <= 0:
-            continue
+    if (pl_module.hparams.m3ae_config["get_recall_metric"] and not pl_module.training) \
+            or (test and pl_module.hparams.m3ae_config["loss_names"]["irtr"] >= 1):
+        (ir_r1, ir_r5, ir_r10, tr_r1, tr_r5, tr_r10) = compute_irtr_recall(pl_module)
+        print((ir_r1, ir_r5, ir_r10, tr_r1, tr_r5, tr_r10), pl_module.global_step)
+        pl_module.log(f"{phase}/recalls/ir_r1", ir_r1)
+        pl_module.log(f"{phase}/recalls/ir_r5", ir_r5)
+        pl_module.log(f"{phase}/recalls/ir_r10", ir_r10)
+        pl_module.log(f"{phase}/recalls/tr_r1", tr_r1)
+        pl_module.log(f"{phase}/recalls/tr_r5", tr_r5)
+        pl_module.log(f"{phase}/recalls/tr_r10", tr_r10)
+        pl_module.logger.experiment[0].add_scalar("recalls/ir_r1", ir_r1, pl_module.global_step)
+        pl_module.logger.experiment[0].add_scalar("recalls/ir_r5", ir_r5, pl_module.global_step)
+        pl_module.logger.experiment[0].add_scalar("recalls/ir_r10", ir_r10, pl_module.global_step)
+        pl_module.logger.experiment[0].add_scalar("recalls/tr_r1", tr_r1, pl_module.global_step)
+        pl_module.logger.experiment[0].add_scalar("recalls/tr_r5", tr_r5, pl_module.global_step)
+        pl_module.logger.experiment[0].add_scalar("recalls/tr_r10", tr_r10, pl_module.global_step)
+        the_metric += ir_r1.item() + tr_r1.item()
 
-        rouge1_score = getattr(pl_module, f"{phase}_vqa_rouge1_score").compute()
-        rouge2_score = getattr(pl_module, f"{phase}_vqa_rouge2_score").compute()
-        bleu_score = getattr(pl_module, f"{phase}_vqa_bleu_score").compute()
-        pl_module.log(f"{phase}_vqa/rouge1", rouge1_score)
-        pl_module.log(f"{phase}_vqa/rouge2", rouge2_score)
-        pl_module.log(f"{phase}_vqa/bleu", bleu_score)
-        the_metric += rouge1_score.item()
-    
+    for loss_name, v in pl_module.hparams.m3ae_config["loss_names"].items():
+        if v <= 0:
+            continue
+        value = 0
+        if loss_name == "vqa":
+            print(pl_module)
+            value = getattr(pl_module, f"{phase}_{loss_name}_score").compute()
+            pl_module.log(f"{loss_name}/{phase}/score_epoch", value)
+            pl_module.log(f"{loss_name}/{phase}/score_best_epoch",
+                          getattr(pl_module, f"{phase}_{loss_name}_score").get_best_score())
+            pl_module.log(f"{loss_name}/{phase}/close_score_best_epoch",
+                          getattr(pl_module, f"{phase}_{loss_name}_score").get_best_close_score())
+            pl_module.log(f"{loss_name}/{phase}/open_score_best_epoch",
+                          getattr(pl_module, f"{phase}_{loss_name}_score").get_best_open_score())
+            getattr(pl_module, f"{phase}_{loss_name}_score").reset()
+
+            pl_module.log(f"{loss_name}/{phase}/loss_epoch", getattr(pl_module, f"{phase}_{loss_name}_loss").compute())
+            getattr(pl_module, f"{phase}_{loss_name}_loss").reset()
+
+        elif loss_name == "cls":
+            value = getattr(pl_module, f"{phase}_{loss_name}_accuracy").compute()
+            pl_module.log(f"{loss_name}/{phase}/accuracy_epoch", value)
+            getattr(pl_module, f"{phase}_{loss_name}_accuracy").reset()
+            pl_module.log(f"{loss_name}/{phase}/loss_epoch", getattr(pl_module, f"{phase}_{loss_name}_loss").compute())
+            getattr(pl_module, f"{phase}_{loss_name}_loss").reset()
+
+        elif loss_name == "irtr":
+            value = getattr(pl_module, f"{phase}_irtr_loss").compute()
+            pl_module.log(f"{loss_name}/{phase}/irtr_loss_epoch", value)
+            getattr(pl_module, f"{phase}_irtr_loss").reset()
+            value = -value
+
+        elif loss_name == "itm":
+            value = getattr(pl_module, f"{phase}_{loss_name}_accuracy").compute()
+            pl_module.log(f"{loss_name}/{phase}/accuracy_epoch", value)
+            getattr(pl_module, f"{phase}_{loss_name}_accuracy").reset()
+            pl_module.log(f"{loss_name}/{phase}/loss_epoch", getattr(pl_module, f"{phase}_{loss_name}_loss").compute())
+            getattr(pl_module, f"{phase}_{loss_name}_loss").reset()
+
+        elif loss_name == "mim":
+            value = -getattr(pl_module, f"{phase}_{loss_name}_loss").compute()
+            pl_module.log(f"{loss_name}/{phase}/accuracy_epoch", value)
+            pl_module.log(f"{loss_name}/{phase}/loss_epoch", - value)
+            getattr(pl_module, f"{phase}_{loss_name}_loss").reset()
+
+        elif loss_name == "mlm":
+            value = getattr(pl_module, f"{phase}_{loss_name}_accuracy").compute()
+            pl_module.log(f"{loss_name}/{phase}/accuracy_epoch", value)
+            getattr(pl_module, f"{phase}_{loss_name}_accuracy").reset()
+            pl_module.log(
+                f"{loss_name}/{phase}/loss_epoch",
+                getattr(pl_module, f"{phase}_{loss_name}_loss").compute(),
+            )
+            getattr(pl_module, f"{phase}_{loss_name}_loss").reset()
+        else:
+            raise ValueError
+
+        the_metric += value
+
     pl_module.log(f"{phase}/the_metric", the_metric)
 
 
@@ -42,8 +119,8 @@ def check_non_acc_grad(pl_module):
         grad = pl_module.token_type_embeddings.weight.grad
         return (grad.sum() == 0).item()
 
-def set_task(pl_module): 
-    pl_module.current_tasks = [k for k, v in pl_module.hparams.config["loss_names"].items() if v > 0]
+def set_task(pl_module):
+    pl_module.current_tasks = [k for k, v in pl_module.hparams.m3ae_config["loss_names"].items() if v > 0]
     return
 
 def init_weights(module):
@@ -67,13 +144,13 @@ def set_schedule(pl_module):
     Returns:
         Optimizer and scheduler.
     """
-    lr = pl_module.hparams.config["learning_rate"]
-    wd = pl_module.hparams.config["weight_decay"]
-    lr_multiplier_head = pl_module.hparams.config.get("lr_multiplier_head", 1.0)
-    lr_multiplier_t5 = pl_module.hparams.config.get("lr_multiplier_t5", 1.0)
-    end_lr = pl_module.hparams.config["end_lr"]
-    decay_power = pl_module.hparams.config["decay_power"]
-    optim_type = pl_module.hparams.config["optim_type"]
+    lr = pl_module.hparams.m3ae_config["learning_rate"]
+    wd = pl_module.hparams.m3ae_config["weight_decay"]
+    lr_multiplier_head = pl_module.hparams.m3ae_config.get("lr_multiplier_head", 1.0)
+    lr_multiplier_t5 = pl_module.hparams.m3ae_config.get("lr_multiplier_t5", 1.0)
+    end_lr = pl_module.hparams.m3ae_config["end_lr"]
+    decay_power = pl_module.hparams.m3ae_config["decay_power"]
+    optim_type = pl_module.hparams.m3ae_config["optim_type"]
 
     no_decay = [
         "bias",
@@ -189,7 +266,7 @@ def set_schedule(pl_module):
     else:
         max_steps = pl_module.trainer.max_steps
 
-    warmup_steps = pl_module.hparams.config["warmup_steps"]
+    warmup_steps = pl_module.hparams.m3ae_config["warmup_steps"]
     if isinstance(warmup_steps, float):
         warmup_steps = int(max_steps * warmup_steps)
 
