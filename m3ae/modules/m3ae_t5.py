@@ -14,7 +14,7 @@ class T5VQA(pl.LightningModule):
         self.save_hyperparameters()
 
         # Initialize M3AE model
-        self.m3ae = M3AETransformerSS(config)
+        self.m3ae = M3AETransformerSS(m3ae_config)
 
         # Freeze M3AE if specified
         if freeze_m3ae:
@@ -37,6 +37,7 @@ class T5VQA(pl.LightningModule):
         )
         
         self.max_answer_length = max_answer_length
+        m3ae_t5_utils.set_metrics(self)
 
     def projection_layer(self, input_dim, output_dim=512):
         """Creates a Linear layer and projects input to output_dim."""
