@@ -73,9 +73,9 @@ def config():
     lr_multiplier_multi_modal = 5  # multiply lr for the multi-modal module
 
     # T5 Model Setting
-    t5_model_name = "t5-small"  # 사용할 T5 모델 이름, 예: t5-small, t5-base, t5-large 등
-    t5_max_length = 25  # 생성할 텍스트의 최대 길이 설정
-    t5_generation = True  # T5 텍스트 생성 활성화 여부    
+    t5_model_name = "t5-small" 
+    t5_max_length = 25  
+    t5_generation = True 
 
     # Downstream Setting
     get_recall_metric = False
