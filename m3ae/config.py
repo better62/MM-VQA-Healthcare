@@ -156,6 +156,7 @@ def task_finetune_vqa_ehr_xqa():
     input_image_embed_size = 768
     image_size = 576
     vqa_label_size = 700
+    max_text_len = 32
 
 
 @ex.named_config
@@ -181,6 +182,7 @@ def task_finetune_vqa_vqa_rad():
     input_image_embed_size = 768
     image_size = 576
     vqa_label_size = 498
+    max_text_len = 32
 
 
 # Named configs for "etc" which are orthogonal to "env" and "task", need to be added at the end
