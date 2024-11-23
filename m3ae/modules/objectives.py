@@ -137,20 +137,18 @@ def compute_vqa(pl_module, batch, test=False):
         "vqa_answer_types": vqa_answer_types,
     }
 
-    if test:
-        phase = "test"
-    else:
-        phase = "train" if pl_module.training else "val"
+    phase = "train" if pl_module.training else "val"
 
     loss = getattr(pl_module, f"{phase}_vqa_loss")(ret["vqa_loss"])
-    rouge1 = getattr(pl_module, f"{phase}_vqa_rouge1_score")(ret["vqa_logits"], ret["vqa_targets"])
-    rouge2 = getattr(pl_module, f"{phase}_vqa_rouge2_score")(ret["vqa_logits"], ret["vqa_targets"])
+    rouge1 = getattr(pl_module, f"{phase}_vqa_rouge1")(ret["vqa_logits"], ret["vqa_targets"])
+    rouge2 = getattr(pl_module, f"{phase}_vqa_rouge")(ret["vqa_logits"], ret["vqa_targets"])
     bleu = getattr(pl_module, f"{phase}_vqa_bleu_score")(ret["vqa_logits"], ret["vqa_targets"])
-    #score = getattr(pl_module, f"{phase}_vqa_score")(ret["vqa_logits"], ret["vqa_targets"], ret["vqa_answer_types"])
-    pl_module.log(f"vqa/{phase}/loss", loss)
-    pl_module.log(f"vqa/{phase}/rouge1 score", rouge1)
-    pl_module.log(f"vqa/{phase}/rouge2 score", rouge2)
-    pl_module.log(f"vqa/{phase}/bleu score", bleu)
+    score = getattr(pl_module, f"{phase}_vqa_score")(ret["vqa_logits"], ret["vqa_targets"], ret["vqa_answer_types"])
+    pl_module.log(f"{phase}/vqa/score", score)
+    pl_module.log(f"{phase}/vqa/loss", loss)
+    pl_module.log(f"{phase}/vqa/rouge1", rouge1)
+    pl_module.log(f"{phase}/vqa/rouge2", rouge2)
+    pl_module.log(f"{phase}/vqa/bleu", bleu)
 
     return ret
 
