@@ -113,25 +113,28 @@ def compute_itm(pl_module, batch):
     return ret
 
 
-def compute_vqa(pl_module, batch, test=False):
-    infer = pl_module.infer(batch, mask_text=False, mask_image=False)
-    vqa_logits = pl_module.vqa_head(infer["multi_modal_cls_feats"])
-    vqa_targets = torch.zeros(len(vqa_logits), pl_module.hparams.config["vqa_label_size"]).to(pl_module.device)
+def compute_vqa(pl_module, batch, test, outputs, loss, labels):
+    # infer = pl_module.infer(batch, mask_text=False, mask_image=False)
+    # vqa_logits = pl_module.vqa_head(infer["multi_modal_cls_feats"])
+    vqa_logits = outputs # generated text answers
+    # vqa_targets = torch.zeros(len(vqa_logits), pl_module.hparams.config["vqa_label_size"]).to(pl_module.device)
 
-    vqa_labels = batch["vqa_labels"]
+    # vqa_labels = batch["vqa_labels"]
     vqa_scores = batch["vqa_scores"]
     vqa_answer_types = torch.tensor(batch["answer_types"]).to(pl_module.device)
 
-    for i, (_label, _score) in enumerate(zip(vqa_labels, vqa_scores)):
-        for l, s in zip(_label, _score):
-            vqa_targets[i, l] = s
+    # for i, (_label, _score) in enumerate(zip(vqa_labels, vqa_scores)):
+    #     for l, s in zip(_label, _score):
+    #         vqa_targets[i, l] = s
 
-    vqa_loss = (F.binary_cross_entropy_with_logits(vqa_logits, vqa_targets) * vqa_targets.shape[1])
+    # vqa_loss = (F.binary_cross_entropy_with_logits(vqa_logits, vqa_targets) * vqa_targets.shape[1])
+    vqa_labels = labels # english text answers
+    vqa_loss = loss
 
     ret = {
         "vqa_loss": vqa_loss,
         "vqa_logits": vqa_logits,
-        "vqa_targets": vqa_targets,
+        # "vqa_targets": vqa_targets,
         "vqa_labels": vqa_labels,
         "vqa_scores": vqa_scores,
         "vqa_answer_types": vqa_answer_types,
@@ -140,11 +143,13 @@ def compute_vqa(pl_module, batch, test=False):
     phase = "train" if pl_module.training else "val"
 
     loss = getattr(pl_module, f"{phase}_vqa_loss")(ret["vqa_loss"])
-    rouge1 = getattr(pl_module, f"{phase}_vqa_rouge1")(ret["vqa_logits"], ret["vqa_targets"])
-    rouge2 = getattr(pl_module, f"{phase}_vqa_rouge")(ret["vqa_logits"], ret["vqa_targets"])
-    bleu = getattr(pl_module, f"{phase}_vqa_bleu_score")(ret["vqa_logits"], ret["vqa_targets"])
-    score = getattr(pl_module, f"{phase}_vqa_score")(ret["vqa_logits"], ret["vqa_targets"], ret["vqa_answer_types"])
-    pl_module.log(f"{phase}/vqa/score", score)
+    rouge1 = getattr(pl_module, f"{phase}_vqa_rouge1")(ret["vqa_logits"], ret["vqa_labels"])
+    rouge2 = getattr(pl_module, f"{phase}_vqa_rouge")(ret["vqa_logits"], ret["vqa_labels"])
+    bleu = getattr(pl_module, f"{phase}_vqa_bleu_score")(ret["vqa_logits"], ret["vqa_labels"])
+
+    # score = getattr(pl_module, f"{phase}_vqa_score")(ret["vqa_logits"], ret["vqa_targets"], ret["vqa_answer_types"])
+    # pl_module.log(f"{phase}/vqa/score", score)
+
     pl_module.log(f"{phase}/vqa/loss", loss)
     pl_module.log(f"{phase}/vqa/rouge1", rouge1)
     pl_module.log(f"{phase}/vqa/rouge2", rouge2)

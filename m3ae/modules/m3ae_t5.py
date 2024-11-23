@@ -38,6 +38,7 @@ class T5VQA(pl.LightningModule):
         
         self.max_answer_length = max_answer_length
         m3ae_t5_utils.set_metrics(self)
+        self.current_tasks = list()
 
     def projection_layer(self, input_dim, output_dim=512):
         """Creates a Linear layer and projects input to output_dim."""
@@ -165,31 +166,19 @@ class T5VQA(pl.LightningModule):
         }
 
 
-    def forward(self, batch, labels=None, test=False):
+    def forward(self, batch, test=False):
         # Prepare encoder inputs with combined visual and textual features
+        ret = dict()
+        
         model_inputs = self.prepare_inputs(batch)
 
         encoder_outputs = self.t5.encoder(
             inputs_embeds=model_inputs["inputs_embeds"],
             attention_mask=model_inputs["attention_mask"]
         )
-        
-        if labels is not None:
-            # For training, tokenize labels separately
-            label_tokens = self.tokenizer(
-                labels,
-                padding=True,
-                truncation=True,
-                return_tensors="pt"
-            ).input_ids.to(self.device)
-            
-            outputs = self.t5(
-                encoder_outputs=encoder_outputs,
-                labels=label_tokens,
-                return_dict=True
-            )
-        else:
-            # Inference mode
+
+        if len(self.current_tasks) == 0 or test:
+            # Inference/test mode - generate text
             outputs = self.t5.generate(
                 encoder_outputs=encoder_outputs,
                 max_length=self.max_answer_length,
@@ -201,7 +190,93 @@ class T5VQA(pl.LightningModule):
                 output_scores=True
             )
             
-        return outputs
+            # Decode the generated outputs to text
+            generated_texts = self.tokenizer.batch_decode(
+                outputs.sequences, 
+                skip_special_tokens=True
+            )
+            
+            ret.update({'outputs': generated_texts})
+            return ret
+
+        else:
+            # Training mode
+            labels = batch["vqa_labels"]  # Assuming these are text answers
+            
+            # Tokenize the labels
+            label_tokens = self.tokenizer(
+                labels,
+                padding=True,
+                truncation=True,
+                return_tensors="pt"
+            ).input_ids.to(self.device)
+            
+            # Get model outputs
+            outputs = self.t5(
+                encoder_outputs=encoder_outputs,
+                labels=label_tokens,
+                return_dict=True
+            )
+            
+            # For metrics, we need to generate text even during training
+            with torch.no_grad():
+                generated_outputs = self.t5.generate(
+                    encoder_outputs=encoder_outputs,
+                    max_length=self.max_answer_length,
+                    num_beams=4,
+                    early_stopping=True,
+                    pad_token_id=self.tokenizer.pad_token_id,
+                    eos_token_id=self.tokenizer.eos_token_id,
+                    return_dict_in_generate=True,
+                )
+                
+                # Decode generated text
+                generated_texts = self.tokenizer.batch_decode(
+                    generated_outputs.sequences, 
+                    skip_special_tokens=True
+                )
+            
+            ret.update(objectives.compute_vqa(
+                self, 
+                batch, 
+                test=test, 
+                outputs=generated_texts,  # Pass decoded text
+                loss=outputs.loss,
+                labels=labels  # Pass original text labels
+            ))
+            
+            return ret
+        
+        # if labels is not None:
+        #     # For training, tokenize labels separately
+        #     label_tokens = self.tokenizer(
+        #         labels,
+        #         padding=True,
+        #         truncation=True,
+        #         return_tensors="pt"
+        #     ).input_ids.to(self.device)
+            
+        #     outputs = self.t5(
+        #         encoder_outputs=encoder_outputs,
+        #         labels=label_tokens,
+        #         return_dict=True
+        #     )
+
+        #     loss = outputs.loss
+        # else:
+        #     # Inference mode
+        #     outputs = self.t5.generate(
+        #         encoder_outputs=encoder_outputs,
+        #         max_length=self.max_answer_length,
+        #         num_beams=4,
+        #         early_stopping=True,
+        #         pad_token_id=self.tokenizer.pad_token_id,
+        #         eos_token_id=self.tokenizer.eos_token_id,
+        #         return_dict_in_generate=True,
+        #         output_scores=True
+        #     )
+            
+        
 
     def generate_answer(self, batch):
         outputs = self(batch)
@@ -218,10 +293,10 @@ class T5VQA(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         m3ae_t5_utils.set_task(self)
         output = self(batch)
-        total_loss = sum([v * self.hparams.config["loss_names"][k.replace("_loss", "")]
+        total_loss = sum([v * self.hparams.m3ae_config["loss_names"][k.replace("_loss", "")]
                           for k, v in output.items() if "loss" in k])
 
-        return total_loss
+        return {'loss': total_loss}
 
     def training_epoch_end(self, outs):
         m3ae_t5_utils.epoch_wrapup(self)
