@@ -24,7 +24,8 @@ def main(_config):
     # Data modules
     # update dist param to be optional
     #dm = MTDataModule(_config, dist=True)
-    dm = MTDataModule(_config, dist=_config["use_ddp"]) 
+    #dm = MTDataModule(_config, dist=False)  
+    dm = MTDataModule(_config, dist=_config["use_ddp"])  
 
 
     # Module
@@ -65,7 +66,7 @@ def main(_config):
     torch.cuda.empty_cache()
 
     # Trainer
-    os.environ["CUDA_VISIBLE_DEVICES"] = "4"  # device num hopely
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # device num hopely
     trainer = pl.Trainer(
         # gpus=num_gpus,
         gpus=[0],

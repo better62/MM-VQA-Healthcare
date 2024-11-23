@@ -371,7 +371,7 @@ class M3AETransformerSS(pl.LightningModule):
         return ret
 
     def training_step(self, batch, batch_idx):
-        m3ae_utils.set_task(self)
+        m3ae_utils.set_task(self) 
         output = self(batch)
         total_loss = sum([v * self.hparams.config["loss_names"][k.replace("_loss", "")]
                           for k, v in output.items() if "loss" in k])

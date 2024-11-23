@@ -14,7 +14,7 @@ class T5VQA(pl.LightningModule):
         self.save_hyperparameters()
 
         # Initialize M3AE model
-        self.m3ae = M3AETransformerSS(m3ae_config)
+        self.m3ae = M3AETransformerSS(config)
 
         # Freeze M3AE if specified
         if freeze_m3ae:
@@ -238,6 +238,24 @@ class T5VQA(pl.LightningModule):
 
     def test_epoch_end(self, outs):
         m3ae_t5_utils.epoch_wrapup(self, test=True)
+
+    def training_epoch_end(self, outs):
+        m3ae_t5_utils.epoch_wrapup(self)
+
+    def validation_step(self, batch, batch_idx):
+        m3ae_t5_utils.set_task(self)
+        output = self(batch)
+
+    def validation_epoch_end(self, outs):
+        m3ae_t5_utils.epoch_wrapup(self)
+
+    def test_step(self, batch, batch_idx):
+        m3ae_t5_utils.set_task(self)
+        output = self(batch, test=True)
+
+    def test_epoch_end(self, outs):
+        m3ae_t5_utils.epoch_wrapup(self, test=True)
+
 
     def configure_optimizers(self):
         # Collect parameters by groups

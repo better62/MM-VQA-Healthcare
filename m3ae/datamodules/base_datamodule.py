@@ -19,10 +19,13 @@ def get_pretrained_tokenizer(from_pretrained):
                 BertTokenizerFast.from_pretrained(from_pretrained, do_lower_case="uncased" in from_pretrained)
         torch.distributed.barrier()
     if 'roberta' in from_pretrained:
-        return RobertaTokenizerFast.from_pretrained(from_pretrained)
+        #return RobertaTokenizerFast.from_pretrained(from_pretrained)
+        #local_path = "/graduate/graduate/IDL/Project/MM-VQA-Healthcare/m3ae/downloaded/roberta-base"
+        return RobertaTokenizerFast.from_pretrained(from_pretrained, local_files_only=True)
+
     return BertTokenizerFast.from_pretrained(from_pretrained, do_lower_case="uncased" in from_pretrained)
 
-
+ 
 class BaseDataModule(LightningDataModule):
     def __init__(self, _config):
         super().__init__()
@@ -37,6 +40,7 @@ class BaseDataModule(LightningDataModule):
         self.draw_false_text = _config["draw_false_text"]
         self.image_only = _config["image_only"]
         self.label_column_name = _config["label_column_name"]
+        self.test_only = _config["test_only"]
 
         # Transformations
         self.train_transform_keys = (
@@ -140,12 +144,14 @@ class BaseDataModule(LightningDataModule):
 
     def setup(self, stage):
         if not self.setup_flag:
-            # self.set_train_dataset()
-            # self.set_val_dataset()
+            if not self.test_only:
+                self.set_train_dataset()
+                self.set_val_dataset()
             self.set_test_dataset()
 
-            # self.train_dataset.tokenizer = self.tokenizer
-            # self.val_dataset.tokenizer = self.tokenizer
+            if not self.test_only:
+                self.train_dataset.tokenizer = self.tokenizer
+                self.val_dataset.tokenizer = self.tokenizer
             self.test_dataset.tokenizer = self.tokenizer
 
             self.setup_flag = True
