@@ -82,9 +82,10 @@ class ROUGE1Score(Metric):
         self.add_state("total", default=torch.tensor(0.0), dist_reduce_fx="sum")
 
     def update(self, preds, targets):
+        # print(preds, targets)
         for pred, target in zip(preds, targets):
-            pred_unigrams = Counter(pred.tolist())
-            target_unigrams = Counter(target.tolist())
+            pred_unigrams = Counter(pred)
+            target_unigrams = Counter(target)
             overlap = sum((pred_unigrams & target_unigrams).values())  # 공통된 1-gram 개수
             possible_overlap = sum(target_unigrams.values())  # target의 총 1-gram 개수
             
@@ -103,10 +104,10 @@ class ROUGE2Score(Metric):
 
     def update(self, preds, targets):
         for pred, target in zip(preds, targets):
-            pred_bigrams = Counter(zip(pred.tolist(), pred.tolist()[1:]))
-            target_bigrams = Counter(zip(target.tolist(), target.tolist()[1:]))
-            overlap = sum((pred_bigrams & target_bigrams).values())  # 공통된 2-gram 개수
-            possible_overlap = sum(target_bigrams.values())  # target의 총 2-gram 개수
+            pred_bigrams = Counter(zip(pred, pred[1:]))
+            target_bigrams = Counter(zip(target, target[1:]))
+            overlap = sum((pred_bigrams & target_bigrams).values())  
+            possible_overlap = sum(target_bigrams.values()) 
             
             if possible_overlap > 0:
                 self.rouge2 += overlap / possible_overlap
@@ -122,15 +123,14 @@ class BLEUScore(Metric):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state("score", default=torch.tensor(0.0), dist_reduce_fx="sum")
         self.add_state("total", default=torch.tensor(0.0), dist_reduce_fx="sum")
-        self.smoothing = SmoothingFunction().method1  # Smoothing function 설정
+        self.smoothing = SmoothingFunction().method1  
 
     def update(self, predictions, references):
         for pred, ref in zip(predictions, references):
-            pred_text = " ".join(map(str, pred.tolist())) if isinstance(pred, torch.Tensor) else pred
-            ref_text = " ".join(map(str, ref.tolist())) if isinstance(ref, torch.Tensor) else ref
+            pred_text = " ".join(map(str, pred)) if isinstance(pred, torch.Tensor) else pred
+            ref_text = " ".join(map(str, ref)) if isinstance(ref, torch.Tensor) else ref
 
-            # Smoothing function 적용
-            bleu_score = sentence_bleu([ref_text.split()], pred_text.split(), smoothing_function=self.smoothing)
+            bleu_score = sentence_bleu([ref_text[0].split()], pred_text[0].split(), smoothing_function=self.smoothing)
             self.score += bleu_score
             self.total += 1
 
