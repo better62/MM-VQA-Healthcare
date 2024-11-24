@@ -96,7 +96,7 @@ def config():
     num_nodes = 1
     load_path = ""
     num_workers = 8
-    precision = 16
+    precision = 32
 
     # MELINDA SETTING
     label_column_name = ""
