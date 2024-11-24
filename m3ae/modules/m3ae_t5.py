@@ -7,6 +7,7 @@ from torch.nn import functional as F
 
 from m3ae.modules import M3AETransformerSS
 from m3ae.modules import m3ae_t5_utils
+from m3ae.modules import objectives
 
 class T5VQA(pl.LightningModule):
     def __init__(self, m3ae_config, max_answer_length=80, freeze_m3ae=True, freeze_t5_layers=True):
@@ -195,17 +196,17 @@ class T5VQA(pl.LightningModule):
                 outputs.sequences, 
                 skip_special_tokens=True
             )
-            
-            ret.update({'outputs': generated_texts})
+            generated_texts_ = [[item] for item in generated_texts]
+            ret.update({'outputs': generated_texts_})
             return ret
 
         else:
             # Training mode
-            labels = batch["vqa_labels"]  # Assuming these are text answers
-            
+            labels = batch["vqa_answer"]  # Assuming these are text answers
+            flattened_labels = [label[0] for label in labels]
             # Tokenize the labels
             label_tokens = self.tokenizer(
-                labels,
+                flattened_labels,
                 padding=True,
                 truncation=True,
                 return_tensors="pt"
@@ -235,12 +236,14 @@ class T5VQA(pl.LightningModule):
                     generated_outputs.sequences, 
                     skip_special_tokens=True
                 )
+
+                generated_texts_ = [[item] for item in generated_texts]
             
             ret.update(objectives.compute_vqa(
                 self, 
                 batch, 
                 test=test, 
-                outputs=generated_texts,  # Pass decoded text
+                outputs=generated_texts_,  # Pass decoded text
                 loss=outputs.loss,
                 labels=labels  # Pass original text labels
             ))
@@ -334,30 +337,31 @@ class T5VQA(pl.LightningModule):
 
 
     def configure_optimizers(self):
+        return m3ae_t5_utils.set_schedule(self)
         # Collect parameters by groups
-        pretrained_params = []
-        new_params = []
+        # pretrained_params = []
+        # new_params = []
         
-        for name, param in self.named_parameters():
-            if param.requires_grad:
-                if 'feature_projection' in name:
-                    new_params.append(param)
-                else:
-                    pretrained_params.append(param)
+        # for name, param in self.named_parameters():
+        #     if param.requires_grad:
+        #         if 'feature_projection' in name:
+        #             new_params.append(param)
+        #         else:
+        #             pretrained_params.append(param)
         
-        optimizer = torch.optim.AdamW([
-            {'params': pretrained_params, 'lr': 1e-5},
-            {'params': new_params, 'lr': 5e-5}
-        ])
+        # optimizer = torch.optim.AdamW([
+        #     {'params': pretrained_params, 'lr': 1e-5},
+        #     {'params': new_params, 'lr': 5e-5}
+        # ])
         
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=10, eta_min=1e-6
-        )
+        # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        #     optimizer, T_max=10, eta_min=1e-6
+        # )
         
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": {
-                "scheduler": scheduler,
-                "monitor": "train_loss"
-            }
-        }
+        # return {
+        #     "optimizer": optimizer,
+        #     "lr_scheduler": {
+        #         "scheduler": scheduler,
+        #         "monitor": "train_loss"
+        #     }
+        # }
