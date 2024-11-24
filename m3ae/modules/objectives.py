@@ -144,7 +144,7 @@ def compute_vqa(pl_module, batch, test, outputs, loss, labels):
 
     loss = getattr(pl_module, f"{phase}_vqa_loss")(ret["vqa_loss"])
     rouge1 = getattr(pl_module, f"{phase}_vqa_rouge1")(ret["vqa_logits"], ret["vqa_labels"])
-    rouge2 = getattr(pl_module, f"{phase}_vqa_rouge")(ret["vqa_logits"], ret["vqa_labels"])
+    rouge2 = getattr(pl_module, f"{phase}_vqa_rouge2")(ret["vqa_logits"], ret["vqa_labels"])
     bleu = getattr(pl_module, f"{phase}_vqa_bleu_score")(ret["vqa_logits"], ret["vqa_labels"])
 
     # score = getattr(pl_module, f"{phase}_vqa_score")(ret["vqa_logits"], ret["vqa_targets"], ret["vqa_answer_types"])
