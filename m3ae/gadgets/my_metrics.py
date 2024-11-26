@@ -73,69 +73,60 @@ class VQAScore(Metric):
     def compute(self):
         return self.score / self.total
 
-
-#### Rouge1 score
+### ROUGE-1 score
 class ROUGE1Score(Metric):
     def __init__(self, dist_sync_on_step=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
+        self.scorer = rouge_scorer.RougeScorer(['rouge1'], use_stemmer=True)
         self.add_state("rouge1", default=torch.tensor(0.0), dist_reduce_fx="sum")
         self.add_state("total", default=torch.tensor(0.0), dist_reduce_fx="sum")
 
     def update(self, preds, targets):
-        # print(preds, targets)
         for pred, target in zip(preds, targets):
-            pred_unigrams = Counter(pred)
-            target_unigrams = Counter(target)
-            overlap = sum((pred_unigrams & target_unigrams).values())  # 공통된 1-gram 개수
-            possible_overlap = sum(target_unigrams.values())  # target의 총 1-gram 개수
-            
-            if possible_overlap > 0:
-                self.rouge1 += overlap / possible_overlap
-                self.total += 1
+            rouge1_score = self.scorer.score(target[0], pred[0])['rouge1'].recall
+            self.rouge1 += torch.tensor(rouge1_score, dtype=torch.float32)
+            self.total += 1
 
     def compute(self):
         return self.rouge1 / self.total if self.total > 0 else torch.tensor(0.0)
 
+### ROUGE-2 score
 class ROUGE2Score(Metric):
     def __init__(self, dist_sync_on_step=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
+        self.scorer = rouge_scorer.RougeScorer(['rouge2'], use_stemmer=True)
         self.add_state("rouge2", default=torch.tensor(0.0), dist_reduce_fx="sum")
         self.add_state("total", default=torch.tensor(0.0), dist_reduce_fx="sum")
 
     def update(self, preds, targets):
         for pred, target in zip(preds, targets):
-            pred_bigrams = Counter(zip(pred, pred[1:]))
-            target_bigrams = Counter(zip(target, target[1:]))
-            overlap = sum((pred_bigrams & target_bigrams).values())  
-            possible_overlap = sum(target_bigrams.values()) 
-            
-            if possible_overlap > 0:
-                self.rouge2 += overlap / possible_overlap
-                self.total += 1
+            rouge2_score = self.scorer.score(target[0], pred[0])['rouge2'].recall
+            self.rouge2 += torch.tensor(rouge2_score, dtype=torch.float32)
+            self.total += 1
 
     def compute(self):
         return self.rouge2 / self.total if self.total > 0 else torch.tensor(0.0)
 
         
-#### Bleu score
+#### BLEU score
 class BLEUScore(Metric):
     def __init__(self, dist_sync_on_step=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state("score", default=torch.tensor(0.0), dist_reduce_fx="sum")
         self.add_state("total", default=torch.tensor(0.0), dist_reduce_fx="sum")
-        self.smoothing = SmoothingFunction().method1  
+        self.smoothing = SmoothingFunction().method1 
 
-    def update(self, predictions, references):
-        for pred, ref in zip(predictions, references):
-            pred_text = " ".join(map(str, pred)) if isinstance(pred, torch.Tensor) else pred
-            ref_text = " ".join(map(str, ref)) if isinstance(ref, torch.Tensor) else ref
+    def update(self, preds, targets):
+        for pred, ref in zip(preds, targets):
 
-            bleu_score = sentence_bleu([ref_text[0].split()], pred_text[0].split(), smoothing_function=self.smoothing)
-            self.score += bleu_score
+            bleu_score = sentence_bleu(
+                [ref], pred, smoothing_function=self.smoothing
+            )
+            self.score += torch.tensor(bleu_score, dtype=torch.float32)
             self.total += 1
 
     def compute(self):
-        return self.score / self.total
+        return self.score / self.total if self.total > 0 else torch.tensor(0.0)
 
 
 class VQARADScore(VQAScore):
