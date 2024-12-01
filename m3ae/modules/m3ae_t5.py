@@ -318,24 +318,6 @@ class T5VQA(pl.LightningModule):
     def test_epoch_end(self, outs):
         m3ae_t5_utils.epoch_wrapup(self, test=True)
 
-    def training_epoch_end(self, outs):
-        m3ae_t5_utils.epoch_wrapup(self)
-
-    def validation_step(self, batch, batch_idx):
-        m3ae_t5_utils.set_task(self)
-        output = self(batch)
-
-    def validation_epoch_end(self, outs):
-        m3ae_t5_utils.epoch_wrapup(self)
-
-    def test_step(self, batch, batch_idx):
-        m3ae_t5_utils.set_task(self)
-        output = self(batch, test=True)
-
-    def test_epoch_end(self, outs):
-        m3ae_t5_utils.epoch_wrapup(self, test=True)
-
-
     def configure_optimizers(self):
         return m3ae_t5_utils.set_schedule(self)
         # Collect parameters by groups

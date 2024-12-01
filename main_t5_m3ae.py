@@ -5,12 +5,12 @@ import gc
 import torch
 import wandb
 
-import pytorch_lightning as pl
+import pytorch_lightning as pl 
 
 from m3ae.config import ex
 from m3ae.datamodules.multitask_datamodule import MTDataModule
 from m3ae.modules import M3AETransformerSS
-from m3ae.modules import T5VQA
+from m3ae.modules import T5VQA 
 
 rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
 resource.setrlimit(resource.RLIMIT_NOFILE, (4096, rlimit[1]))
@@ -63,7 +63,7 @@ def main(_config):
     gc.collect()
     torch.cuda.empty_cache()
 
-    # Trainer
+    # Trainer 
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # device num hopely
     trainer = pl.Trainer(
         # gpus=num_gpus,

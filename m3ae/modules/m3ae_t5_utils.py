@@ -3,7 +3,7 @@ import torch.nn as nn
 from transformers import get_polynomial_decay_schedule_with_warmup, get_cosine_schedule_with_warmup
 from transformers.optimization import AdamW
 
-from .objectives import compute_irtr_recall
+from .objectives import compute_irtr_recall 
 from ..gadgets.my_metrics import VQARADScore, Accuracy, Scalar, ROUGE1Score, ROUGE2Score, BLEUScore
 
 def set_metrics(pl_module):
@@ -71,6 +71,13 @@ def epoch_wrapup(pl_module, test=False):
 
             pl_module.log(f"{loss_name}/{phase}/loss_epoch", getattr(pl_module, f"{phase}_{loss_name}_loss").compute())
             getattr(pl_module, f"{phase}_{loss_name}_loss").reset()
+
+            # Log additional metrics: ROUGE1, ROUGE2, BLEU
+            metrics = ["rouge1", "rouge2", "bleu_score"]
+            for metric in metrics:
+                metric_value = getattr(pl_module, f"{phase}_{loss_name}_{metric}").compute()
+                pl_module.log(f"{loss_name}/{phase}/{metric}", metric_value)
+                getattr(pl_module, f"{phase}_{loss_name}_{metric}").reset()            
 
         elif loss_name == "cls":
             value = getattr(pl_module, f"{phase}_{loss_name}_accuracy").compute()
