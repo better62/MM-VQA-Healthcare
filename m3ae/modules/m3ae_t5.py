@@ -41,18 +41,31 @@ class T5VQA(pl.LightningModule):
         m3ae_t5_utils.set_metrics(self)
         self.current_tasks = list()
 
+    
     def projection_layer(self, input_dim, output_dim=512):
         """Creates a Linear layer and projects input to output_dim."""
         linear_layer = nn.Linear(input_dim, output_dim).to(self.device)
         return linear_layer
     
-    def unfreeze_top_layers(self, num_layers=2):
-        """Unfreeze the top N layers of T5 encoder and decoder"""
+    def unfreeze_top_layers(self, num_encoder_layers=2, num_decoder_layers=2):
+        """
+        Unfreeze the top N layers of T5 encoder and decoder.
+        
+        Args:
+            num_encoder_layers (int): Number of encoder layers to unfreeze.
+            num_decoder_layers (int): Number of decoder layers to unfreeze.
+        """
+        # Freeze all T5 layers by default
         for param in self.t5.parameters():
             param.requires_grad = False
 
-        # Unfreeze top N layers of decoder
-        for i in range(len(self.t5.decoder.block) - num_layers, len(self.t5.decoder.block)):
+        # Unfreeze top N encoder layers
+        for i in range(len(self.t5.encoder.block) - num_encoder_layers, len(self.t5.encoder.block)):
+            for param in self.t5.encoder.block[i].parameters():
+                param.requires_grad = True
+
+        # Unfreeze top N decoder layers
+        for i in range(len(self.t5.decoder.block) - num_decoder_layers, len(self.t5.decoder.block)):
             # Self attention
             for param in self.t5.decoder.block[i].layer[0].parameters():
                 param.requires_grad = True
@@ -60,10 +73,7 @@ class T5VQA(pl.LightningModule):
             for param in self.t5.decoder.block[i].layer[1].parameters():
                 param.requires_grad = True
         
-        # To see which layers are frozen
-        # print("Called unfreeze_layers(" + str(num_layers) + ") on t5")
-        # for param in self.t5.parameters():
-        #     print(param.requires_grad)
+        #print(f"Unfroze {num_encoder_layers} encoder layers and {num_decoder_layers} decoder layers.")
 
     def prepare_inputs(self, batch):
         # Get multi-modal features from M3AE
@@ -317,6 +327,24 @@ class T5VQA(pl.LightningModule):
 
     def test_epoch_end(self, outs):
         m3ae_t5_utils.epoch_wrapup(self, test=True)
+
+    def training_epoch_end(self, outs):
+        m3ae_t5_utils.epoch_wrapup(self)
+
+    def validation_step(self, batch, batch_idx):
+        m3ae_t5_utils.set_task(self)
+        output = self(batch)
+
+    def validation_epoch_end(self, outs):
+        m3ae_t5_utils.epoch_wrapup(self)
+
+    def test_step(self, batch, batch_idx):
+        m3ae_t5_utils.set_task(self)
+        output = self(batch, test=True)
+
+    def test_epoch_end(self, outs):
+        m3ae_t5_utils.epoch_wrapup(self, test=True)
+
 
     def configure_optimizers(self):
         return m3ae_t5_utils.set_schedule(self)
