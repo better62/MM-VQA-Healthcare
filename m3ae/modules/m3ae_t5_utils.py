@@ -72,7 +72,7 @@ def epoch_wrapup(pl_module, test=False):
             pl_module.log(f"{loss_name}/{phase}/loss_epoch", getattr(pl_module, f"{phase}_{loss_name}_loss").compute())
             getattr(pl_module, f"{phase}_{loss_name}_loss").reset()
 
-            # Log additional metrics: ROUGE1, ROUGE2, BLEU
+            # Log additional metrics: ROUGE1, ROUGE2, BLEU 
             metrics = ["rouge1", "rouge2", "bleu_score"]
             for metric in metrics:
                 metric_value = getattr(pl_module, f"{phase}_{loss_name}_{metric}").compute()
@@ -121,7 +121,6 @@ def epoch_wrapup(pl_module, test=False):
         the_metric += value
 
     pl_module.log(f"{phase}/the_metric", the_metric)
-
 
 def check_non_acc_grad(pl_module):
     if pl_module.token_type_embeddings.weight.grad is None:
