@@ -43,18 +43,10 @@ class T5VQA(pl.LightningModule):
 
     
     def projection_layer(self, input_dim, output_dim=512):
-        """Creates a Linear layer and projects input to output_dim."""
         linear_layer = nn.Linear(input_dim, output_dim).to(self.device)
         return linear_layer
     
     def unfreeze_top_layers(self, num_encoder_layers=2, num_decoder_layers=2):
-        """
-        Unfreeze the top N layers of T5 encoder and decoder.
-        
-        Args:
-            num_encoder_layers (int): Number of encoder layers to unfreeze.
-            num_decoder_layers (int): Number of decoder layers to unfreeze.
-        """
         # Freeze all T5 layers by default
         for param in self.t5.parameters():
             param.requires_grad = False
