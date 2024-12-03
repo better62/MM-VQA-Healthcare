@@ -64,10 +64,10 @@ def main(_config):
     torch.cuda.empty_cache()
 
     # Trainer 
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # device num hopely
+    os.environ["CUDA_VISIBLE_DEVICES"] = "3"  # GPU device number
     trainer = pl.Trainer(
         # gpus=num_gpus,
-        gpus=[0],
+        gpus=[3],
         num_nodes=_config["num_nodes"],
         precision=_config["precision"],
         # distributed_backend="ddp",  

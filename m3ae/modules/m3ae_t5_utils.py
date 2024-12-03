@@ -76,7 +76,8 @@ def epoch_wrapup(pl_module, test=False):
             metrics = ["rouge1", "rouge2", "bleu_score"]
             for metric in metrics:
                 metric_value = getattr(pl_module, f"{phase}_{loss_name}_{metric}").compute()
-                pl_module.log(f"{loss_name}/{phase}/{metric}", metric_value)
+                #pl_module.log(f"{loss_name}/{phase}/{metric}", metric_value)
+                pl_module.log(f"{phase}/{metric}", metric_value)
                 getattr(pl_module, f"{phase}_{loss_name}_{metric}").reset()            
 
         elif loss_name == "cls":
