@@ -77,6 +77,10 @@ def config():
     t5_max_length = 25  
     t5_generation = True 
 
+    # Unfreeze layer number Setting
+    unfreeze_num_encoder_layers = 2
+    unfreeze_num_decoder_layers = 2
+
     # Downstream Setting
     get_recall_metric = False
 

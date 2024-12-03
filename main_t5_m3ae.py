@@ -30,6 +30,7 @@ def main(_config):
 
     # Module
     model = T5VQA(_config)
+    model.unfreeze_top_layers(num_encoder_layers=_config["unfreeze_num_encoder_layers"],num_decoder_layers=_config["unfreeze_num_decoder_layers"]) # Unfreeze the top 1 layers of DistilBERT
 
     # Loggers
     os.makedirs(_config["log_dir"], exist_ok=True)
@@ -64,10 +65,10 @@ def main(_config):
     torch.cuda.empty_cache()
 
     # Trainer 
-    os.environ["CUDA_VISIBLE_DEVICES"] = "3"  # GPU device number
+    os.environ["CUDA_VISIBLE_DEVICES"] = "7"  # GPU device number
     trainer = pl.Trainer(
         # gpus=num_gpus,
-        gpus=[3],
+        gpus=[5],
         num_nodes=_config["num_nodes"],
         precision=_config["precision"],
         # distributed_backend="ddp",  
