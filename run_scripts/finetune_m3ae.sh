@@ -18,8 +18,10 @@ python main_t5_m3ae.py with data_root=data/finetune_arrows/ \
 python main_t5_m3ae.py with data_root=data/finetune_arrows/ \
  num_workers=0 \
  max_epoch=70 \
- unfreeze_num_encoder_layers=3 \
- unfreeze_num_decoder_layers=5 \
+ learning_rate=0.00001 \
+ batch_size=64 \
+ unfreeze_num_encoder_layers=2 \
+ unfreeze_num_decoder_layers=2 \
  num_gpus=${num_gpus} num_nodes=1 \
  task_finetune_vqa_vqa_rad \
  per_gpu_batchsize=${per_gpu_batchsize} \
@@ -31,7 +33,9 @@ python main_t5_m3ae.py with data_root=data/finetune_arrows/ \
 python main_t5_m3ae.py with data_root=data/finetune_arrows/ \
  num_workers=0 \
  max_epoch=70 \
- unfreeze_num_encoder_layers=5 \
+ learning_rate=0.00001 \
+ batch_size=64 \
+ unfreeze_num_encoder_layers=3 \
  unfreeze_num_decoder_layers=3 \
  num_gpus=${num_gpus} num_nodes=1 \
  task_finetune_vqa_vqa_rad \

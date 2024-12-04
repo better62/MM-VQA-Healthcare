@@ -101,6 +101,7 @@ def config():
     load_path = ""
     num_workers = 8
     precision = 32
+    gpu_device_number = 5
 
     # MELINDA SETTING
     label_column_name = ""

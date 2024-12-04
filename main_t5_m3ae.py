@@ -77,8 +77,7 @@ def main(_config):
     # Trainer 
     #os.environ["CUDA_VISIBLE_DEVICES"] = "7"  # GPU device number -> maybe "gpus=[5]" is correct
     trainer = pl.Trainer(
-        # gpus=num_gpus,
-        gpus=[5], # GPU device number
+        gpus=[_config["gpu_device_number"]], # GPU device number
         num_nodes=_config["num_nodes"],
         precision=_config["precision"],
         # distributed_backend="ddp",  
