@@ -9,6 +9,7 @@ per_gpu_batchsize=16
 # downloaded/finetuned/vqa/vqa_rad/m3ae_finetuned_vqa_vqa_rad_76.7.ckpt
 
 python main_t5_m3ae.py with data_root=data/finetune_arrows/ \
+ num_workers=0 \
  num_gpus=${num_gpus} num_nodes=1 \
  task_finetune_vqa_ehr_xqa \
  per_gpu_batchsize=${per_gpu_batchsize} \
@@ -16,7 +17,8 @@ python main_t5_m3ae.py with data_root=data/finetune_arrows/ \
  image_size=384 \
  test_only=True \
  tokenizer=downloaded/roberta-base \
- load_path=downloaded/finetuned/vqa/vqa_rad/m3ae_finetuned_vqa_vqa_rad_77.4.ckpt
+ load_path=checkpoints/task_finetune_vqa_vqa_rad-seed0-from_downloaded_finetuned_vqa_vqa_rad_m3ae_finetuned_vqa_vqa_rad_77.4.ckpt_EHR-XQA-T5/3_rre9isid/checkpoints/epoch=10-step=999.ckpt
+ #load_path=downloaded/finetuned/vqa/vqa_rad/m3ae_finetuned_vqa_vqa_rad_77.4.ckpt
 
 
 # python main.py with data_root=data/finetune_arrows/ \

@@ -43,14 +43,24 @@ def main(_config):
     loggers = [tb_logger, wb_logger]
 
     # Callbackttg
+    '''
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
         save_top_k=1,
         verbose=True,
-        monitor="val/the_metric",
+        monitor="val/vqa/loss",
         mode="max",
         save_last=True,
         save_weights_only=True if "finetune" in exp_name else False
     )
+    '''
+    # save every checkpoint per epoch
+    checkpoint_callback = pl.callbacks.ModelCheckpoint(
+        save_top_k=-1,
+        verbose=True,
+        save_last=True,  
+        save_weights_only=True if "finetune" in exp_name else False,
+    )    
+
     lr_callback = pl.callbacks.LearningRateMonitor(logging_interval="step")
     callbacks = [checkpoint_callback, lr_callback]
 
@@ -65,10 +75,10 @@ def main(_config):
     torch.cuda.empty_cache()
 
     # Trainer 
-    os.environ["CUDA_VISIBLE_DEVICES"] = "7"  # GPU device number
+    #os.environ["CUDA_VISIBLE_DEVICES"] = "7"  # GPU device number -> maybe "gpus=[5]" is correct
     trainer = pl.Trainer(
         # gpus=num_gpus,
-        gpus=[5],
+        gpus=[5], # GPU device number
         num_nodes=_config["num_nodes"],
         precision=_config["precision"],
         # distributed_backend="ddp",  
