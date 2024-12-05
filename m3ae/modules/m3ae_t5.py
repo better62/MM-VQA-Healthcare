@@ -10,7 +10,7 @@ from m3ae.modules import m3ae_t5_utils
 from m3ae.modules import objectives
 
 class T5VQA(pl.LightningModule):
-    def __init__(self, m3ae_config, max_answer_length=80, freeze_m3ae=True, freeze_t5_layers=True):
+    def __init__(self, m3ae_config, freeze_m3ae=True, freeze_t5_layers=True):
         super().__init__()
         self.save_hyperparameters()
 
@@ -37,7 +37,7 @@ class T5VQA(pl.LightningModule):
             self.t5.config.hidden_size
         )
         
-        self.max_answer_length = max_answer_length
+        self.max_answer_length = m3ae_config["t5_max_length"]
         m3ae_t5_utils.set_metrics(self)
         self.current_tasks = list()
 
