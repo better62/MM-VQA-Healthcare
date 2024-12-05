@@ -66,7 +66,7 @@ def config():
     weight_decay = 0.01
     decay_power = 1
     max_epoch = 100
-    max_steps = 100000
+    max_steps = -1
     warmup_steps = 10000
     end_lr = 0
     lr_multiplier_head = 5  # multiply lr for prediction heads
