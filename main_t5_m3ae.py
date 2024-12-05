@@ -10,7 +10,7 @@ import pytorch_lightning as pl
 from m3ae.config import ex
 from m3ae.datamodules.multitask_datamodule import MTDataModule
 from m3ae.modules import M3AETransformerSS
-from m3ae.modules import T5VQA 
+from m3ae.modules import T5VQA_MMEncoderInput
 
 rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
 resource.setrlimit(resource.RLIMIT_NOFILE, (4096, rlimit[1]))
@@ -29,7 +29,7 @@ def main(_config):
 
 
     # Module
-    model = T5VQA(_config)
+    model = T5VQA_MMEncoderInput(_config)
     model.unfreeze_top_layers(num_encoder_layers=_config["unfreeze_num_encoder_layers"],num_decoder_layers=_config["unfreeze_num_decoder_layers"]) # Unfreeze the top 1 layers of DistilBERT
 
     # Loggers
