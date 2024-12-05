@@ -17,7 +17,7 @@ python main_t5_m3ae.py with data_root=data/finetune_arrows/ \
  image_size=384 \
  test_only=True \
  tokenizer=downloaded/roberta-base \
- load_path=checkpoints/task_finetune_vqa_vqa_rad-seed0-from_downloaded_finetuned_vqa_vqa_rad_m3ae_finetuned_vqa_vqa_rad_77.4.ckpt_EHR-XQA-T5/3_rre9isid/checkpoints/epoch=10-step=999.ckpt
+ load_path=checkpoints/task_finetune_vqa_vqa_rad-seed0-from_downloaded_finetuned_vqa_vqa_rad_m3ae_finetuned_vqa_vqa_rad_77.4.ckpt_EHR-XQA-T5/9_h7exl0mc/checkpoints/last.ckpt
  #load_path=downloaded/finetuned/vqa/vqa_rad/m3ae_finetuned_vqa_vqa_rad_77.4.ckpt
 
 
