@@ -39,7 +39,7 @@ def main(_config):
     tb_logger = pl.loggers.TensorBoardLogger(_config["log_dir"], name=run_name)
 
     # Define project name here !!
-    wb_logger = pl.loggers.WandbLogger(project="EHR-XQA-T5", name=run_name)
+    wb_logger = pl.loggers.WandbLogger(project="VQA-RAD-T5", name=run_name)
     loggers = [tb_logger, wb_logger]
 
     # Callbackttg
