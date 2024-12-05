@@ -72,6 +72,11 @@ def config():
     lr_multiplier_head = 5  # multiply lr for prediction heads
     lr_multiplier_multi_modal = 5  # multiply lr for the multi-modal module
 
+    # Encoder Setting
+    mm_encoder_inputs_include_cls_feats = True
+    mm_encoder_inputs_include_imagetext_feats = False
+    mm_encoder_inputs_mm_feats_width = 0
+
     # T5 Model Setting
     t5_model_name = "t5-small" 
     t5_max_length = 25  
@@ -101,7 +106,7 @@ def config():
     load_path = ""
     num_workers = 8
     precision = 32
-    gpu_device_number = 5
+    gpu_device_number = 0
 
     # MELINDA SETTING
     label_column_name = ""

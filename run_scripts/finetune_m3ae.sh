@@ -1,19 +1,19 @@
-num_gpus=2
+num_gpus=1
 per_gpu_batchsize=8
 
 
 # === EHR-XQA ===
-'''
-python main_t5_m3ae.py with data_root=data/finetune_arrows/ \
- num_gpus=${num_gpus} num_nodes=1 \
- task_finetune_vqa_ehr_xqa \
- per_gpu_batchsize=${per_gpu_batchsize} \
- clip16 text_roberta \
- image_size=384 \
- tokenizer=downloaded/roberta-base \
- load_path=downloaded/finetuned/vqa/vqa_rad/m3ae_finetuned_vqa_vqa_rad_77.4.ckpt
+# '''
+# python main_t5_m3ae.py with data_root=data/finetune_arrows/ \
+#  num_gpus=${num_gpus} num_nodes=1 \
+#  task_finetune_vqa_ehr_xqa \
+#  per_gpu_batchsize=${per_gpu_batchsize} \
+#  clip16 text_roberta \
+#  image_size=384 \
+#  tokenizer=downloaded/roberta-base \
+#  load_path=downloaded/finetuned/vqa/vqa_rad/m3ae_finetuned_vqa_vqa_rad_77.4.ckpt
 
-'''
+# '''
 # === VQA-RAD ===
 python main_t5_m3ae.py with data_root=data/finetune_arrows/ \
  num_workers=0 \

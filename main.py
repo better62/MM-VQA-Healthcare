@@ -30,7 +30,7 @@ def main(_config):
     exp_name = f'{_config["exp_name"]}'
     run_name = f'{exp_name}-seed{_config["seed"]}-from_{_config["load_path"].replace("/", "_")}'
     tb_logger = pl.loggers.TensorBoardLogger(_config["log_dir"], name=run_name)
-    wb_logger = pl.loggers.WandbLogger(project="EHR-XQA (ROUGE&BLEU)", name=run_name)
+    wb_logger = pl.loggers.WandbLogger(project="VQA-RAD (ROUGE&BLEU)", name=run_name)
     loggers = [tb_logger, wb_logger]
 
     # Callbackttg
