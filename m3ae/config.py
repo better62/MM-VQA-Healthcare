@@ -101,12 +101,12 @@ def config():
     log_dir = "result"
     per_gpu_batchsize = 0
     use_ddp = False
-    num_gpus = 1
+    num_gpus = 5
     num_nodes = 1
     load_path = ""
     num_workers = 8
     precision = 32
-    gpu_device_number = 0
+    gpu_device_number = 5
 
     # MELINDA SETTING
     label_column_name = ""
