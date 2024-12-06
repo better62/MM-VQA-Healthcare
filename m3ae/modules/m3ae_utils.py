@@ -16,17 +16,21 @@ def set_metrics(pl_module):
             if k == "vqa":
                 if split == "train":
                     setattr(pl_module, f"train_{k}_score", VQARADScore())
+                    setattr(pl_module, f"train_{k}_rouge1", ROUGE1Score())
+                    setattr(pl_module, f"train_{k}_rouge2", ROUGE2Score())
+                    setattr(pl_module, f"train_{k}_bleu_score", BLEUScore())
                     setattr(pl_module, f"train_{k}_loss", Scalar())
                 else:
-                    setattr(pl_module, f"val_{k}_rouge1_score", ROUGE1Score())
-                    setattr(pl_module, f"val_{k}_rouge2_score", ROUGE2Score())
+                    setattr(pl_module, f"val_{k}_score", VQARADScore())
+                    setattr(pl_module, f"val_{k}_rouge1", ROUGE1Score())
+                    setattr(pl_module, f"val_{k}_rouge2", ROUGE2Score())
                     setattr(pl_module, f"val_{k}_bleu_score", BLEUScore())
                     setattr(pl_module, f"val_{k}_loss", Scalar())
-                    setattr(pl_module, f"test_{k}_rouge1_score",ROUGE1Score())
-                    setattr(pl_module, f"test_{k}_rouge2_score",ROUGE2Score())
 
-                    setattr(pl_module, f"test_{k}_bleu_score", BLEUScore())
                     setattr(pl_module, f"test_{k}_score", VQARADScore())
+                    setattr(pl_module, f"test_{k}_rouge1",ROUGE1Score())
+                    setattr(pl_module, f"test_{k}_rouge2",ROUGE2Score())
+                    setattr(pl_module, f"test_{k}_bleu_score", BLEUScore())
                     setattr(pl_module, f"test_{k}_loss", Scalar())
 
 

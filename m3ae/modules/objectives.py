@@ -176,7 +176,7 @@ def compute_vqa_m3ae(pl_module, batch, test):
 
     vqa_labels = batch["vqa_labels"]
     vqa_scores = batch["vqa_scores"]
-    vqa_answers = batch["vqa_answers"]
+    vqa_answers = batch["vqa_answer"]
     vqa_answer_types = torch.tensor(batch["answer_types"]).to(pl_module.device)
 
     for i, (_label, _score) in enumerate(zip(vqa_labels, vqa_scores)):
@@ -190,7 +190,8 @@ def compute_vqa_m3ae(pl_module, batch, test):
     ret = {
         "vqa_loss": vqa_loss,
         "vqa_logits": vqa_logits,
-        "vqa_english_answers": english_answers,
+        "vqa_model_answers": english_answers,
+        "vqa_true_answers": vqa_answers,
         "vqa_targets": vqa_targets,
         "vqa_labels": vqa_labels,
         "vqa_scores": vqa_scores,
@@ -200,9 +201,9 @@ def compute_vqa_m3ae(pl_module, batch, test):
     phase = "train" if pl_module.training else "val"
 
     loss = getattr(pl_module, f"{phase}_vqa_loss")(ret["vqa_loss"])
-    rouge1 = getattr(pl_module, f"{phase}_vqa_rouge1")(ret["vqa_english_answers"], ret["vqa_answers"])
-    rouge2 = getattr(pl_module, f"{phase}_vqa_rouge2")(ret["vqa_english_answers"], ret["vqa_answers"])
-    bleu = getattr(pl_module, f"{phase}_vqa_bleu_score")(ret["vqa_english_answers"], ret["vqa_answers"])
+    rouge1 = getattr(pl_module, f"{phase}_vqa_rouge1")(ret["vqa_model_answers"], ret["vqa_true_answers"])
+    rouge2 = getattr(pl_module, f"{phase}_vqa_rouge2")(ret["vqa_model_answers"], ret["vqa_true_answers"])
+    bleu = getattr(pl_module, f"{phase}_vqa_bleu_score")(ret["vqa_model_answers"], ret["vqa_true_answers"])
 
     # score = getattr(pl_module, f"{phase}_vqa_score")(ret["vqa_logits"], ret["vqa_targets"], ret["vqa_answer_types"])
     # pl_module.log(f"{phase}/vqa/score", score)
