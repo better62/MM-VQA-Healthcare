@@ -100,6 +100,37 @@ def prepro_vqa_vqa_rad():
     make_arrow_vqa(data, "vqa_vqa_rad", "data/finetune_arrows/")
 
 
+def prepro_vqa_vqa_rad_m3ae():
+    random.seed(42)
+
+    data = {
+        "train": [],
+        "val": [],
+        "test": []
+    }
+
+    data_root = "data/finetune_data/vqa_rad/"
+    image_root = f"{data_root}/images"
+
+    for split in ["train", "val", "test"]:
+        with open(f"{data_root}/{split}set.json", "r") as fp:
+            samples = json.load(fp)
+            for sample in samples:
+                img_path = os.path.join(image_root, sample["image_name"])
+                qid = sample["qid"]
+                question = sample["question"]
+                answer = sample["answer"]
+                answer_type = sample["answer_type"]
+                data[split].append({
+                    "img_path": img_path,
+                    "qid": qid,
+                    "question": question,
+                    "answer": answer,
+                    "answer_type": answer_type
+                })
+    make_arrow_vqa_m3ae(data, "vqa_vqa_rad", "data/finetune_arrows/")
+
+
 def prepro_vqa_slack():
     random.seed(42)
 
@@ -240,8 +271,7 @@ def prepro_irtr_roco(min_length=3):
 
 if __name__ == '__main__':
     # prepro_vqa_ehr_xqa()
-    prepro_vqa_vqa_rad()
-    # prepro_vqa_slack()
-    # prepro_vqa_medvqa2019()
-    # prepro_cls_melinda()
-    # prepro_irtr_roco()
+
+    prepro_vqa_vqa_rad() # for running M3AE with T5
+
+    # prepro_vqa_vqa_rad_m3ae() # for running M3AE (normal)

@@ -1,5 +1,6 @@
 import os
 from collections import Counter, defaultdict
+import json
 
 import pandas as pd
 import pyarrow as pa
@@ -122,79 +123,85 @@ def path2rest_vqa(path, split, annotations, label2ans):
     return [binary, questions, answers, answer_labels, answer_scores, iid, qids, question_types, split]
 
 
-# def make_arrow_vqa(data, dataset_name, save_dir):
-#     questions_train, questions_val, questions_test = data["train"], data["val"], data["test"]
+def make_arrow_vqa_m3ae(data, dataset_name, save_dir):
+    questions_train, questions_val, questions_test = data["train"], data["val"], data["test"]
 
-#     # Record Questions
-#     annotations = dict()
-#     for split, questions in zip(["train", "val", "test"], [questions_train, questions_val, questions_test]):
-#         _annotation = defaultdict(dict)
-#         for q in tqdm(questions):
-#             _annotation[q["img_path"]][q["qid"]] = [q["question"]]
-#         annotations[split] = _annotation
+    # Record Questions
+    annotations = dict()
+    for split, questions in zip(["train", "val", "test"], [questions_train, questions_val, questions_test]):
+        _annotation = defaultdict(dict)
+        for q in tqdm(questions):
+            _annotation[q["img_path"]][q["qid"]] = [q["question"]]
+        annotations[split] = _annotation
 
-#     # Construct Vocabulary
-#     all_major_answers = list()
-#     for split, questions in zip(["train", "val", "test"], [questions_train, questions_val, questions_test]):
-#         for q in tqdm(questions):
-#             all_major_answers.append(str(q["answer"]).lower())
-#     all_major_answers = [normalize_word(word) for word in tqdm(all_major_answers)]
-#     counter = {k: v for k, v in Counter(all_major_answers).items() if v >= 0}
-#     ans2label = {k: i for i, k in enumerate(counter.keys())}
-#     label2ans = list(counter.keys())
-#     print("Label size ({}): {}.".format(dataset_name, len(ans2label)))
+    # Construct Vocabulary
+    all_major_answers = list()
+    for split, questions in zip(["train", "val", "test"], [questions_train, questions_val, questions_test]):
+        for q in tqdm(questions):
+            all_major_answers.append(str(q["answer"]).lower())
+    all_major_answers = [normalize_word(word) for word in tqdm(all_major_answers)]
+    counter = {k: v for k, v in Counter(all_major_answers).items() if v >= 0}
+    ans2label = {k: i for i, k in enumerate(counter.keys())}
+    label2ans = list(counter.keys())
 
-#     # Record Answers
-#     for split, questions in zip(["train", "val", "test"], [questions_train, questions_val, questions_test]):
-#         _annotation = annotations[split]
-#         for q in tqdm(questions):
-#             answers = normalize_word(str(q["answer"]).lower())
-#             answer_count = {}
-#             answer_count[answers] = answer_count.get(answers, 0) + 1
-#             labels = []
-#             scores = []
-#             for answer in answer_count:
-#                 assert answer in ans2label
-#                 labels.append(ans2label[answer])
-#                 score = get_score(answer_count[answer])
-#                 scores.append(score)
-#             assert q['answer_type'].strip().lower() == "closed" or q['answer_type'].strip().lower() == "open"
-#             answer_type = 0 if q['answer_type'].strip().lower() == "closed" else 1
-#             _annotation[q["img_path"]][q["qid"]].append(
-#                 {"labels": labels, "scores": scores, "answer_type": answer_type})
+    with open("label2ans.json", "w") as f:
+        json.dump(label2ans, f)
 
-#     # Write to the files
-#     for split in ["train", "val", "test"]:
-#         annot = annotations[split]
-#         annot_paths = [path for path in annot if os.path.exists(path)]
-#         assert len(annot_paths) == len(annot) or len(annot_paths) == len(annot) - 1
-#         print("{} set: {} images, {} questions".format(split,
-#                                                        len(annot),
-#                                                        len([vv for k, v in annot.items() for kk, vv in v.items()])))
+    print("vqa index -> answers stored as label2ans.json")
 
-#         bs = [
-#             path2rest_vqa(path, split, annotations, label2ans) for path in tqdm(annot_paths)
-#         ]
-#         dataframe = pd.DataFrame(
-#             bs,
-#             columns=[
-#                 "image",
-#                 "questions",
-#                 "answers",
-#                 "answer_labels",
-#                 "answer_scores",
-#                 "image_id",
-#                 "question_id",
-#                 "answer_type",
-#                 "split",
-#             ],
-#         )
-#         table = pa.Table.from_pandas(dataframe)
+    print("Label size ({}): {}.".format(dataset_name, len(ans2label)))
 
-#         os.makedirs(save_dir, exist_ok=True)
-#         with pa.OSFile(f"{save_dir}/{dataset_name}_{split}.arrow", "wb") as sink:
-#             with pa.RecordBatchFileWriter(sink, table.schema) as writer:
-#                 writer.write_table(table)
+    # Record Answers
+    for split, questions in zip(["train", "val", "test"], [questions_train, questions_val, questions_test]):
+        _annotation = annotations[split]
+        for q in tqdm(questions):
+            answers = normalize_word(str(q["answer"]).lower())
+            answer_count = {}
+            answer_count[answers] = answer_count.get(answers, 0) + 1
+            labels = []
+            scores = []
+            for answer in answer_count:
+                assert answer in ans2label
+                labels.append(ans2label[answer])
+                score = get_score(answer_count[answer])
+                scores.append(score)
+            assert q['answer_type'].strip().lower() == "closed" or q['answer_type'].strip().lower() == "open"
+            answer_type = 0 if q['answer_type'].strip().lower() == "closed" else 1
+            _annotation[q["img_path"]][q["qid"]].append(
+                {"labels": labels, "scores": scores, "answer_type": answer_type, "english_answer": str(q["answer"]).lower()})
+
+    # Write to the files
+    for split in ["train", "val", "test"]:
+        annot = annotations[split]
+        annot_paths = [path for path in annot if os.path.exists(path)]
+        assert len(annot_paths) == len(annot) or len(annot_paths) == len(annot) - 1
+        print("{} set: {} images, {} questions".format(split,
+                                                       len(annot),
+                                                       len([vv for k, v in annot.items() for kk, vv in v.items()])))
+
+        bs = [
+            path2rest_vqa(path, split, annotations, label2ans) for path in tqdm(annot_paths)
+        ]
+        dataframe = pd.DataFrame(
+            bs,
+            columns=[
+                "image",
+                "questions",
+                "answers",
+                "answer_labels",
+                "answer_scores",
+                "image_id",
+                "question_id",
+                "answer_type",
+                "split",
+            ],
+        )
+        table = pa.Table.from_pandas(dataframe)
+
+        os.makedirs(save_dir, exist_ok=True)
+        with pa.OSFile(f"{save_dir}/{dataset_name}_{split}.arrow", "wb") as sink:
+            with pa.RecordBatchFileWriter(sink, table.schema) as writer:
+                writer.write_table(table)
 
 
 def make_arrow_vqa(data, dataset_name, save_dir):

@@ -358,7 +358,7 @@ class M3AETransformerSS(pl.LightningModule):
 
         # Fine-Tuning: Visual Question Answering
         if "vqa" in self.current_tasks:
-            ret.update(objectives.compute_vqa(self, batch, test=test))
+            ret.update(objectives.compute_vqa_m3ae(self, batch, test=test))
 
         # Fine-Tuning: Image-Text Classification
         if "cls" in self.current_tasks:
