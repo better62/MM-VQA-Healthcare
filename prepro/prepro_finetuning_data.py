@@ -4,7 +4,7 @@ import re
 import random
 import pandas as pd
 
-from make_arrow import make_arrow, make_arrow_vqa, make_arrow_melinda
+from make_arrow import make_arrow, make_arrow_vqa, make_arrow_melinda, make_arrow_vqa_m3ae
 
 
 def prepro_vqa_ehr_xqa():
@@ -109,7 +109,7 @@ def prepro_vqa_vqa_rad_m3ae():
         "test": []
     }
 
-    data_root = "data/finetune_data/vqa_rad/"
+    data_root = "data/finetune_data/vqa_rad"
     image_root = f"{data_root}/images"
 
     for split in ["train", "val", "test"]:
@@ -128,7 +128,7 @@ def prepro_vqa_vqa_rad_m3ae():
                     "answer": answer,
                     "answer_type": answer_type
                 })
-    make_arrow_vqa_m3ae(data, "vqa_vqa_rad", "data/finetune_arrows/")
+    make_arrow_vqa_m3ae(data, "vqa_vqa_rad", "data/finetune_arrows_m3ae/")
 
 
 def prepro_vqa_slack():
@@ -272,6 +272,6 @@ def prepro_irtr_roco(min_length=3):
 if __name__ == '__main__':
     # prepro_vqa_ehr_xqa()
 
-    prepro_vqa_vqa_rad() # for running M3AE with T5
+    # prepro_vqa_vqa_rad() # for running M3AE with T5
 
-    # prepro_vqa_vqa_rad_m3ae() # for running M3AE (normal)
+    prepro_vqa_vqa_rad_m3ae() # for running M3AE (normal)
