@@ -164,7 +164,6 @@ def compute_vqa(pl_module, batch, test, outputs, loss, labels):
 def compute_vqa_m3ae(pl_module, batch, test):
     infer = pl_module.infer(batch, mask_text=False, mask_image=False)
     vqa_logits = pl_module.vqa_head(infer["multi_modal_cls_feats"])
-    # print("Actual vqa_head: ", pl_module.vqa_head[0])
 
     with open('label2ans.json', 'r') as f:
         label2ans = json.load(f)
@@ -185,6 +184,7 @@ def compute_vqa_m3ae(pl_module, batch, test):
         for l, s in zip(_label, _score):
             vqa_targets[i, l] = s
 
+    vqa_answers = [answer for l in vqa_answers for answer in l]
     print(f"ground truth answers in english {vqa_answers}")
     vqa_loss = (F.binary_cross_entropy_with_logits(vqa_logits, vqa_targets) * vqa_targets.shape[1])
 
