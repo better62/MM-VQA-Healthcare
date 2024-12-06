@@ -17,8 +17,9 @@ python3.8 main.py with data_root=data/finetune_arrows_m3ae/ \
  image_size=384 \
  test_only=True \
  tokenizer=downloaded/roberta-base \
-#  load_path=checkpoints/task_finetune_vqa_vqa_rad-seed0-from_downloaded_finetuned_vqa_vqa_rad_m3ae_finetuned_vqa_vqa_rad_77.4.ckpt_EHR-XQA-T5/9_h7exl0mc/checkpoints/last.ckpt
  load_path=downloaded/finetuned/vqa/vqa_rad/m3ae_finetuned_vqa_vqa_rad_77.4.ckpt
+#  load_path=checkpoints/task_finetune_vqa_vqa_rad-seed0-from_downloaded_finetuned_vqa_vqa_rad_m3ae_finetuned_vqa_vqa_rad_77.4.ckpt_EHR-XQA-T5/9_h7exl0mc/checkpoints/last.ckpt
+
 
 
 # python main.py with data_root=data/finetune_arrows/ \

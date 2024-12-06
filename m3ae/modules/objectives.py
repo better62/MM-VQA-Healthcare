@@ -170,7 +170,7 @@ def compute_vqa_m3ae(pl_module, batch, test):
     
     predictions = torch.argmax(vqa_logits, dim=1)
     print(f"predictions {predictions}")
-    english_answers = [label2ans[pred.item()] for pred in predictions]
+    english_answers = [label2ans[str(pred.item())] for pred in predictions]
     print(f"predictions in english: {english_answers}")
 
     vqa_targets = torch.zeros(len(vqa_logits), pl_module.hparams.config["vqa_label_size"]).to(pl_module.device)
@@ -185,7 +185,6 @@ def compute_vqa_m3ae(pl_module, batch, test):
             vqa_targets[i, l] = s
 
     print(f"ground truth answers in english {vqa_answers}")
-
     vqa_loss = (F.binary_cross_entropy_with_logits(vqa_logits, vqa_targets) * vqa_targets.shape[1])
 
     ret = {
