@@ -9,6 +9,24 @@ __pycache__/
 **/__pycache__/
 **/*.pyc
 
+**/**/*.jpg
+**/*.jpg
+
+
+**/**/*.yaml
+**/*.yaml
+
+result/
+wandb/
+
+**/**/*.json
+checkpoints/
+
+**/**/*.zip
+
+get-pip.py
+
+downloaded/roberta-base
 # C extensions
 *.so
 
