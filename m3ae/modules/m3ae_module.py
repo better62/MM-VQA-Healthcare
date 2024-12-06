@@ -152,10 +152,10 @@ class M3AETransformerSS(pl.LightningModule):
             ckpt = torch.load(self.hparams.config["load_path"], map_location="cpu")
             state_dict = ckpt["state_dict"]
             
-            # vqa_head 관련 가중치 제거
-            vqa_head_keys = [key for key in state_dict.keys() if key.startswith("vqa_head")]
-            for key in vqa_head_keys:
-                del state_dict[key]
+            # # vqa_head 관련 가중치 제거
+            # vqa_head_keys = [key for key in state_dict.keys() if key.startswith("vqa_head")]
+            # for key in vqa_head_keys:
+            #     del state_dict[key]
             
             # 필요한 경우 위치 인코딩 적응
             state_dict = adapt_position_encoding(state_dict, after=resolution_after,
@@ -164,16 +164,16 @@ class M3AETransformerSS(pl.LightningModule):
             # 남은 가중치만 로드
             self.load_state_dict(state_dict, strict=False)
 
-            hs = self.hparams.config["hidden_size"]
-            if self.hparams.config["loss_names"]["vqa"] > 0:
-                vs = self.hparams.config["vqa_label_size"]
-                self.vqa_head = nn.Sequential(
-                    nn.Linear(hs * 2, hs * 2),
-                    nn.LayerNorm(hs * 2),
-                    nn.GELU(),
-                    nn.Linear(hs * 2, vs),
-                )
-                self.vqa_head.apply(init_weights)  # vqa_head 초기화
+            # hs = self.hparams.config["hidden_size"]
+            # if self.hparams.config["loss_names"]["vqa"] > 0:
+            #     vs = self.hparams.config["vqa_label_size"]
+            #     self.vqa_head = nn.Sequential(
+            #         nn.Linear(hs * 2, hs * 2),
+            #         nn.LayerNorm(hs * 2),
+            #         nn.GELU(),
+            #         nn.Linear(hs * 2, vs),
+            #     )
+            #     self.vqa_head.apply(init_weights)  # vqa_head 초기화
             # == End  : 5. Load Models For Testing ==
 
     def random_masking(self, x, mask_ratio):

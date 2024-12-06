@@ -6,6 +6,7 @@ import tqdm
 from einops import rearrange
 from torch.utils.data.distributed import DistributedSampler
 import json
+import pickle
 
 from .dist_utils import all_gather
 
@@ -205,8 +206,8 @@ def compute_vqa_m3ae(pl_module, batch, test):
     rouge2 = getattr(pl_module, f"{phase}_vqa_rouge2")(ret["vqa_model_answers"], ret["vqa_true_answers"])
     bleu = getattr(pl_module, f"{phase}_vqa_bleu_score")(ret["vqa_model_answers"], ret["vqa_true_answers"])
 
-    # score = getattr(pl_module, f"{phase}_vqa_score")(ret["vqa_logits"], ret["vqa_targets"], ret["vqa_answer_types"])
-    # pl_module.log(f"{phase}/vqa/score", score)
+    score = getattr(pl_module, f"{phase}_vqa_score")(ret["vqa_logits"], ret["vqa_targets"], ret["vqa_answer_types"])
+    pl_module.log(f"{phase}/vqa/score", score)
 
     pl_module.log(f"{phase}/vqa/loss", loss)
     pl_module.log(f"{phase}/vqa/rouge1", rouge1)
