@@ -54,29 +54,32 @@ def epoch_wrapup(pl_module, test=False):
     else:
         phase = "train" if pl_module.training else "val"
 
-    the_metric = 0
-    if (pl_module.hparams.config["get_recall_metric"] and not pl_module.training) \
-            or (test and pl_module.hparams.config["loss_names"]["irtr"] >= 1):
-        (ir_r1, ir_r5, ir_r10, tr_r1, tr_r5, tr_r10) = compute_irtr_recall(pl_module)
-        print((ir_r1, ir_r5, ir_r10, tr_r1, tr_r5, tr_r10), pl_module.global_step)
-        pl_module.log(f"{phase}/recalls/ir_r1", ir_r1)
-        pl_module.log(f"{phase}/recalls/ir_r5", ir_r5)
-        pl_module.log(f"{phase}/recalls/ir_r10", ir_r10)
-        pl_module.log(f"{phase}/recalls/tr_r1", tr_r1)
-        pl_module.log(f"{phase}/recalls/tr_r5", tr_r5)
-        pl_module.log(f"{phase}/recalls/tr_r10", tr_r10)
-        pl_module.logger.experiment[0].add_scalar("recalls/ir_r1", ir_r1, pl_module.global_step)
-        pl_module.logger.experiment[0].add_scalar("recalls/ir_r5", ir_r5, pl_module.global_step)
-        pl_module.logger.experiment[0].add_scalar("recalls/ir_r10", ir_r10, pl_module.global_step)
-        pl_module.logger.experiment[0].add_scalar("recalls/tr_r1", tr_r1, pl_module.global_step)
-        pl_module.logger.experiment[0].add_scalar("recalls/tr_r5", tr_r5, pl_module.global_step)
-        pl_module.logger.experiment[0].add_scalar("recalls/tr_r10", tr_r10, pl_module.global_step)
-        the_metric += ir_r1.item() + tr_r1.item()
+    for loss_name, v in pl_module.hparams.config["loss_names"].items():
+        if v <= 0:
+            continue
+        value = 0
+        if loss_name == "vqa":
+            print(pl_module)
+            value = getattr(pl_module, f"{phase}_{loss_name}_score").compute()
+            pl_module.log(f"{loss_name}/{phase}/score_epoch", value)
+            pl_module.log(f"{loss_name}/{phase}/score_best_epoch",
+                          getattr(pl_module, f"{phase}_{loss_name}_score").get_best_score())
+            pl_module.log(f"{loss_name}/{phase}/close_score_best_epoch",
+                          getattr(pl_module, f"{phase}_{loss_name}_score").get_best_close_score())
+            pl_module.log(f"{loss_name}/{phase}/open_score_best_epoch",
+                          getattr(pl_module, f"{phase}_{loss_name}_score").get_best_open_score())
+            getattr(pl_module, f"{phase}_{loss_name}_score").reset()
 
+            pl_module.log(f"{loss_name}/{phase}/loss_epoch", getattr(pl_module, f"{phase}_{loss_name}_loss").compute())
+            getattr(pl_module, f"{phase}_{loss_name}_loss").reset()
 
-    the_metric += value
-
-    pl_module.log(f"{phase}/the_metric", the_metric)
+            # Log additional metrics: ROUGE1, ROUGE2, BLEU 
+            metrics = ["rouge1", "rouge2", "bleu_score"]
+            for metric in metrics:
+                metric_value = getattr(pl_module, f"{phase}_{loss_name}_{metric}").compute()
+                #pl_module.log(f"{loss_name}/{phase}/{metric}", metric_value)
+                pl_module.log(f"{phase}/{metric}", metric_value)
+                getattr(pl_module, f"{phase}_{loss_name}_{metric}").reset()    
 
 
 def check_non_acc_grad(pl_module):
