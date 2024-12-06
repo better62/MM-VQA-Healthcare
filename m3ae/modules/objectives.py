@@ -5,6 +5,7 @@ import torch.nn.functional as F
 import tqdm
 from einops import rearrange
 from torch.utils.data.distributed import DistributedSampler
+import json
 
 from .dist_utils import all_gather
 
@@ -160,9 +161,17 @@ def compute_vqa(pl_module, batch, test, outputs, loss, labels):
 def compute_vqa_m3ae(pl_module, batch, test, outputs, loss=None, labels=None):
     infer = pl_module.infer(batch, mask_text=False, mask_image=False)
     vqa_logits = pl_module.vqa_head(infer["multi_modal_cls_feats"])
+
+    with open('label2ans.json', 'r') as f:
+        label2ans = json.load(f)
+    
+    predictions = torch.argmax(vqa_logits, dim=1)
+    english_answers = [label2ans[pred.item()] for pred in predictions]
+
     vqa_targets = torch.zeros(len(vqa_logits), pl_module.hparams.config["vqa_label_size"]).to(pl_module.device)
 
     vqa_labels = batch["vqa_labels"]
+    vqa_labels = [label2ans[label.item()] for label in vqa_labels]
     vqa_scores = batch["vqa_scores"]
     vqa_answer_types = torch.tensor(batch["answer_types"]).to(pl_module.device)
 
@@ -175,6 +184,7 @@ def compute_vqa_m3ae(pl_module, batch, test, outputs, loss=None, labels=None):
     ret = {
         "vqa_loss": vqa_loss,
         "vqa_logits": vqa_logits,
+        "vqa_english_answers": english_answers,
         "vqa_targets": vqa_targets,
         "vqa_labels": vqa_labels,
         "vqa_scores": vqa_scores,
@@ -184,9 +194,9 @@ def compute_vqa_m3ae(pl_module, batch, test, outputs, loss=None, labels=None):
     phase = "train" if pl_module.training else "val"
 
     loss = getattr(pl_module, f"{phase}_vqa_loss")(ret["vqa_loss"])
-    rouge1 = getattr(pl_module, f"{phase}_vqa_rouge1")(ret["vqa_logits"], ret["vqa_labels"])
-    rouge2 = getattr(pl_module, f"{phase}_vqa_rouge2")(ret["vqa_logits"], ret["vqa_labels"])
-    bleu = getattr(pl_module, f"{phase}_vqa_bleu_score")(ret["vqa_logits"], ret["vqa_labels"])
+    rouge1 = getattr(pl_module, f"{phase}_vqa_rouge1")(ret["vqa_english_answers"], ret["vqa_labels"])
+    rouge2 = getattr(pl_module, f"{phase}_vqa_rouge2")(ret["vqa_english_answers"], ret["vqa_labels"])
+    bleu = getattr(pl_module, f"{phase}_vqa_bleu_score")(ret["vqa_english_answers"], ret["vqa_labels"])
 
     # score = getattr(pl_module, f"{phase}_vqa_score")(ret["vqa_logits"], ret["vqa_targets"], ret["vqa_answer_types"])
     # pl_module.log(f"{phase}/vqa/score", score)
