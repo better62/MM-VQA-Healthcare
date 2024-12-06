@@ -142,7 +142,7 @@ def make_arrow_vqa_m3ae(data, dataset_name, save_dir):
     all_major_answers = [normalize_word(word) for word in tqdm(all_major_answers)]
     counter = {k: v for k, v in Counter(all_major_answers).items() if v >= 0}
     ans2label = {k: i for i, k in enumerate(counter.keys())}
-    label2ans = list(counter.keys())
+    label2ans = {i: k for i, k in enumerate(counter.keys())}
 
     with open("label2ans.json", "w") as f:
         json.dump(label2ans, f)
