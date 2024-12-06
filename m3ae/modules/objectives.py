@@ -148,6 +148,8 @@ def compute_vqa(pl_module, batch, test, outputs, loss, labels):
     rouge2 = getattr(pl_module, f"{phase}_vqa_rouge2")(ret["vqa_logits"], ret["vqa_labels"])
     bleu = getattr(pl_module, f"{phase}_vqa_bleu_score")(ret["vqa_logits"], ret["vqa_labels"])
 
+    print(ret["vqa_logits"][:2],ret["vqa_labels"][:2])
+
     # score = getattr(pl_module, f"{phase}_vqa_score")(ret["vqa_logits"], ret["vqa_targets"], ret["vqa_answer_types"])
     # pl_module.log(f"{phase}/vqa/score", score)
 
@@ -158,7 +160,7 @@ def compute_vqa(pl_module, batch, test, outputs, loss, labels):
 
     return ret
 
-def compute_vqa_m3ae(pl_module, batch, test, outputs, loss=None, labels=None):
+def compute_vqa_m3ae(pl_module, batch, test):
     infer = pl_module.infer(batch, mask_text=False, mask_image=False)
     vqa_logits = pl_module.vqa_head(infer["multi_modal_cls_feats"])
 
@@ -166,18 +168,26 @@ def compute_vqa_m3ae(pl_module, batch, test, outputs, loss=None, labels=None):
         label2ans = json.load(f)
     
     predictions = torch.argmax(vqa_logits, dim=1)
+    print(f"predictions {predictions}")
     english_answers = [label2ans[pred.item()] for pred in predictions]
+    print(f"predictions in english: {english_answers}")
 
     vqa_targets = torch.zeros(len(vqa_logits), pl_module.hparams.config["vqa_label_size"]).to(pl_module.device)
 
     vqa_labels = batch["vqa_labels"]
-    vqa_labels = [label2ans[label.item()] for label in vqa_labels]
     vqa_scores = batch["vqa_scores"]
     vqa_answer_types = torch.tensor(batch["answer_types"]).to(pl_module.device)
 
     for i, (_label, _score) in enumerate(zip(vqa_labels, vqa_scores)):
         for l, s in zip(_label, _score):
             vqa_targets[i, l] = s
+
+    vqa_targs = torch.argmax(vqa_targets, dim=1)
+    vqa_answers = [label2ans[label.item()] for label in vqa_targs]
+
+    print(f"ground truth labels: {vqa_targs}")
+    vqa_labels = [label2ans[label[0]] for label in vqa_labels]
+    print(f"ground truth answers in english {vqa_answers}")
 
     vqa_loss = (F.binary_cross_entropy_with_logits(vqa_logits, vqa_targets) * vqa_targets.shape[1])
 
