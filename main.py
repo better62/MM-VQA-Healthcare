@@ -20,7 +20,7 @@ def main(_config):
     pl.seed_everything(_config["seed"])
 
     # Data modules
-    dm = MTDataModule(_config, dist=True)
+    dm = MTDataModule(_config, dist=False)
 
     # Module
     model = M3AETransformerSS(_config)

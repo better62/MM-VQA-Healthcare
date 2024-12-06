@@ -1,4 +1,4 @@
-num_gpus=2
+num_gpus=1
 per_gpu_batchsize=16
 
 # === 1. VQA ===
@@ -8,17 +8,17 @@ per_gpu_batchsize=16
 # downloaded/finetuned/vqa/vqa_rad/m3ae_finetuned_vqa_vqa_rad_76.9.ckpt
 # downloaded/finetuned/vqa/vqa_rad/m3ae_finetuned_vqa_vqa_rad_76.7.ckpt
 
-python main_t5_m3ae.py with data_root=data/finetune_arrows/ \
+python3.8 main.py with data_root=data/finetune_arrows_m3ae/ \
  num_workers=0 \
  num_gpus=${num_gpus} num_nodes=1 \
- task_finetune_vqa_ehr_xqa \
+ task_finetune_vqa_vqa_rad \
  per_gpu_batchsize=${per_gpu_batchsize} \
  clip16 text_roberta \
  image_size=384 \
  test_only=True \
  tokenizer=downloaded/roberta-base \
- load_path=checkpoints/task_finetune_vqa_vqa_rad-seed0-from_downloaded_finetuned_vqa_vqa_rad_m3ae_finetuned_vqa_vqa_rad_77.4.ckpt_EHR-XQA-T5/9_h7exl0mc/checkpoints/last.ckpt
- #load_path=downloaded/finetuned/vqa/vqa_rad/m3ae_finetuned_vqa_vqa_rad_77.4.ckpt
+#  load_path=checkpoints/task_finetune_vqa_vqa_rad-seed0-from_downloaded_finetuned_vqa_vqa_rad_m3ae_finetuned_vqa_vqa_rad_77.4.ckpt_EHR-XQA-T5/9_h7exl0mc/checkpoints/last.ckpt
+ load_path=downloaded/finetuned/vqa/vqa_rad/m3ae_finetuned_vqa_vqa_rad_77.4.ckpt
 
 
 # python main.py with data_root=data/finetune_arrows/ \

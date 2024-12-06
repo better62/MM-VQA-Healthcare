@@ -12,87 +12,36 @@ def set_metrics(pl_module):
         for k, v in pl_module.hparams.config["loss_names"].items():
             if v <= 0:
                 continue
-            if split == "train":
-                setattr(pl_module, f"train_{k}_score", VQARADScore())
-                setattr(pl_module, f"train_{k}_rouge1", ROUGE1Score())
-                setattr(pl_module, f"train_{k}_rouge2", ROUGE2Score())
-                setattr(pl_module, f"train_{k}_bleu_score", BLEUScore())
-                setattr(pl_module, f"train_{k}_loss", Scalar())
+
+            if k == "vqa":
+                if split == "train":
+                    setattr(pl_module, f"train_{k}_score", VQARADScore())
+                    setattr(pl_module, f"train_{k}_loss", Scalar())
+                else:
+                    setattr(pl_module, f"val_{k}_rouge1_score", ROUGE1Score())
+                    setattr(pl_module, f"val_{k}_rouge2_score", ROUGE2Score())
+                    setattr(pl_module, f"val_{k}_bleu_score", BLEUScore())
+                    setattr(pl_module, f"val_{k}_loss", Scalar())
+                    setattr(pl_module, f"test_{k}_rouge1_score",ROUGE1Score())
+                    setattr(pl_module, f"test_{k}_rouge2_score",ROUGE2Score())
+
+                    setattr(pl_module, f"test_{k}_bleu_score", BLEUScore())
+                    setattr(pl_module, f"test_{k}_score", VQARADScore())
+                    setattr(pl_module, f"test_{k}_loss", Scalar())
+
+
+            elif k == "cls":
+                if split == "train":
+                    setattr(pl_module, f"train_{k}_accuracy", Accuracy())
+                    setattr(pl_module, f"train_{k}_loss", Scalar())
+                else:
+                    setattr(pl_module, f"val_{k}_accuracy", Accuracy())
+                    setattr(pl_module, f"val_{k}_loss", Scalar())
+                    setattr(pl_module, f"test_{k}_accuracy", Accuracy())
+                    setattr(pl_module, f"test_{k}_loss", Scalar())
+
             else:
-                setattr(pl_module, f"val_{k}_score", VQARADScore())
-                setattr(pl_module, f"val_{k}_rouge1", ROUGE1Score())
-                setattr(pl_module, f"val_{k}_rouge2", ROUGE2Score())
-                setattr(pl_module, f"val_{k}_bleu_score", BLEUScore())
-                setattr(pl_module, f"val_{k}_loss", Scalar())
-
-                setattr(pl_module, f"test_{k}_score", VQARADScore())
-                setattr(pl_module, f"test_{k}_rouge1",ROUGE1Score())
-                setattr(pl_module, f"test_{k}_rouge2",ROUGE2Score())
-                setattr(pl_module, f"test_{k}_bleu_score", BLEUScore())
-                setattr(pl_module, f"test_{k}_loss", Scalar())
-
-    # for split in ["train", "val"]:
-    #     for k, v in pl_module.hparams.config["loss_names"].items():
-    #         if v <= 0:
-    #             continue
-    #         # if k == "vqa":
-    #         #     if split == "train":
-    #         #         setattr(pl_module, f"train_{k}_score", VQARADScore())
-    #         #         setattr(pl_module, f"train_{k}_loss", Scalar())
-    #         #     else:
-    #         #         setattr(pl_module, f"val_{k}_score", VQARADScore())
-    #         #         setattr(pl_module, f"val_{k}_loss", Scalar())
-    #         #         setattr(pl_module, f"test_{k}_score", VQARADScore())
-    #         #         setattr(pl_module, f"test_{k}_loss", Scalar())
-
-
-            # if k == "vqa":
-            #     if split == "train":
-            #         setattr(pl_module, f"train_{k}_score", VQARADScore())
-            #         setattr(pl_module, f"train_{k}_loss", Scalar())
-            #     else:
-            #         setattr(pl_module, f"val_{k}_rouge1_score", ROUGE1Score())
-            #         setattr(pl_module, f"val_{k}_rouge2_score", ROUGE2Score())
-            #         setattr(pl_module, f"val_{k}_bleu_score", BLEUScore())
-            #         setattr(pl_module, f"val_{k}_loss", Scalar())
-            #         setattr(pl_module, f"test_{k}_rouge1_score",ROUGE1Score())
-            #         setattr(pl_module, f"test_{k}_rouge2_score",ROUGE2Score())
-
-            #         setattr(pl_module, f"test_{k}_bleu_score", BLEUScore())
-            #         setattr(pl_module, f"test_{k}_loss", Scalar())
-
-
-            # elif k == "cls":
-            #     if split == "train":
-            #         setattr(pl_module, f"train_{k}_accuracy", Accuracy())
-            #         setattr(pl_module, f"train_{k}_loss", Scalar())
-            #     else:
-            #         setattr(pl_module, f"val_{k}_accuracy", Accuracy())
-            #         setattr(pl_module, f"val_{k}_loss", Scalar())
-            #         setattr(pl_module, f"test_{k}_accuracy", Accuracy())
-            #         setattr(pl_module, f"test_{k}_loss", Scalar())
-
-            # elif k == "irtr":
-            #     if split == "train":
-            #         setattr(pl_module, f"train_irtr_loss", Scalar())
-            #     else:
-            #         setattr(pl_module, f"val_irtr_loss", Scalar())
-            #         setattr(pl_module, f"test_irtr_loss", Scalar())
-
-            # elif k == "itm":
-            #     setattr(pl_module, f"{split}_{k}_accuracy", Accuracy())
-            #     setattr(pl_module, f"{split}_{k}_loss", Scalar())
-
-            # elif k == "mlm":
-            #     setattr(pl_module, f"{split}_{k}_accuracy", Accuracy())
-            #     setattr(pl_module, f"{split}_{k}_loss", Scalar())
-
-            # elif k == "mim":
-            #     setattr(pl_module, f"{split}_{k}_accuracy", Accuracy())
-            #     setattr(pl_module, f"{split}_{k}_loss", Scalar())
-
-            # else:
-            #     raise ValueError
+                raise ValueError
 
 
 def epoch_wrapup(pl_module, test=False):
@@ -120,44 +69,6 @@ def epoch_wrapup(pl_module, test=False):
         pl_module.logger.experiment[0].add_scalar("recalls/tr_r10", tr_r10, pl_module.global_step)
         the_metric += ir_r1.item() + tr_r1.item()
 
-    
-    elif loss_name == "cls":
-        value = getattr(pl_module, f"{phase}_{loss_name}_accuracy").compute()
-        pl_module.log(f"{loss_name}/{phase}/accuracy_epoch", value)
-        getattr(pl_module, f"{phase}_{loss_name}_accuracy").reset()
-        pl_module.log(f"{loss_name}/{phase}/loss_epoch", getattr(pl_module, f"{phase}_{loss_name}_loss").compute())
-        getattr(pl_module, f"{phase}_{loss_name}_loss").reset()
-
-    elif loss_name == "irtr":
-        value = getattr(pl_module, f"{phase}_irtr_loss").compute()
-        pl_module.log(f"{loss_name}/{phase}/irtr_loss_epoch", value)
-        getattr(pl_module, f"{phase}_irtr_loss").reset()
-        value = -value
-
-    elif loss_name == "itm":
-        value = getattr(pl_module, f"{phase}_{loss_name}_accuracy").compute()
-        pl_module.log(f"{loss_name}/{phase}/accuracy_epoch", value)
-        getattr(pl_module, f"{phase}_{loss_name}_accuracy").reset()
-        pl_module.log(f"{loss_name}/{phase}/loss_epoch", getattr(pl_module, f"{phase}_{loss_name}_loss").compute())
-        getattr(pl_module, f"{phase}_{loss_name}_loss").reset()
-
-    elif loss_name == "mim":
-        value = -getattr(pl_module, f"{phase}_{loss_name}_loss").compute()
-        pl_module.log(f"{loss_name}/{phase}/accuracy_epoch", value)
-        pl_module.log(f"{loss_name}/{phase}/loss_epoch", - value)
-        getattr(pl_module, f"{phase}_{loss_name}_loss").reset()
-
-    elif loss_name == "mlm":
-        value = getattr(pl_module, f"{phase}_{loss_name}_accuracy").compute()
-        pl_module.log(f"{loss_name}/{phase}/accuracy_epoch", value)
-        getattr(pl_module, f"{phase}_{loss_name}_accuracy").reset()
-        pl_module.log(
-            f"{loss_name}/{phase}/loss_epoch",
-            getattr(pl_module, f"{phase}_{loss_name}_loss").compute(),
-        )
-        getattr(pl_module, f"{phase}_{loss_name}_loss").reset()
-    else:
-        raise ValueError
 
     the_metric += value
 

@@ -93,7 +93,7 @@ def config():
     resume_from = None
     fast_dev_run = False
     val_check_interval = 1.0
-    test_only = False
+    test_only = True
     default_root_dir = "checkpoints"
 
     # below params varies with the environment
@@ -101,12 +101,12 @@ def config():
     log_dir = "result"
     per_gpu_batchsize = 0
     use_ddp = False
-    num_gpus = 5
+    num_gpus = 1
     num_nodes = 1
     load_path = ""
     num_workers = 8
     precision = 32
-    gpu_device_number = 5
+    gpu_device_number = 0
 
     # MELINDA SETTING
     label_column_name = ""

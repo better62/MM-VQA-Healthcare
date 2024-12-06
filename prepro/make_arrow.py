@@ -168,7 +168,7 @@ def make_arrow_vqa_m3ae(data, dataset_name, save_dir):
             assert q['answer_type'].strip().lower() == "closed" or q['answer_type'].strip().lower() == "open"
             answer_type = 0 if q['answer_type'].strip().lower() == "closed" else 1
             _annotation[q["img_path"]][q["qid"]].append(
-                {"labels": labels, "scores": scores, "answer_type": answer_type, "english_answer": str(q["answer"]).lower()})
+                {"labels": labels, "scores": scores, "answer_type": answer_type})
 
     # Write to the files
     for split in ["train", "val", "test"]:
