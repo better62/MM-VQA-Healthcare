@@ -164,6 +164,7 @@ def compute_vqa(pl_module, batch, test, outputs, loss, labels):
 def compute_vqa_m3ae(pl_module, batch, test):
     infer = pl_module.infer(batch, mask_text=False, mask_image=False)
     vqa_logits = pl_module.vqa_head(infer["multi_modal_cls_feats"])
+    # print("Actual vqa_head: ", pl_module.vqa_head[0])
 
     with open('label2ans.json', 'r') as f:
         label2ans = json.load(f)
