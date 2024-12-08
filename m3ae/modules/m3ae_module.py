@@ -125,24 +125,6 @@ class M3AETransformerSS(pl.LightningModule):
             )
             self.vqa_head.apply(init_weights)
 
-        if self.hparams.config["loss_names"]["cls"] > 0:
-            ms = self.hparams.config["melinda_label_size"][self.hparams.config["label_column_name"]]
-            self.cls_head = nn.Sequential(
-                nn.Linear(hs * 2, hs * 2),
-                nn.LayerNorm(hs * 2),
-                nn.GELU(),
-                nn.Linear(hs * 2, ms),
-            )
-            self.cls_head.apply(init_weights)
-
-        if self.hparams.config["loss_names"]["irtr"] > 0:
-            self.irtr_head = nn.Linear(hs * 2, 1)
-            self.irtr_head.weight.data = self.itm_head.fc.weight.data[1:, :]
-            self.irtr_head.bias.data = self.itm_head.fc.bias.data[1:]
-            self.margin = 0.2
-            for p in self.itm_head.parameters():
-                p.requires_grad = False
-
         m3ae_utils.set_metrics(self)
         self.current_tasks = list()
         # == End:  4. Build Heads For Downstream Tasks ==

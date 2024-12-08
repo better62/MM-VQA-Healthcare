@@ -58,7 +58,7 @@ def epoch_wrapup(pl_module, test=False):
             continue
         value = 0
         if loss_name == "vqa":
-            print(pl_module)
+            # print(pl_module)
             value = getattr(pl_module, f"{phase}_{loss_name}_score").compute()
             pl_module.log(f"{loss_name}/{phase}/score_epoch", value)
             pl_module.log(f"{loss_name}/{phase}/score_best_epoch",

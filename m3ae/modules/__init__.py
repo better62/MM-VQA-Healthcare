@@ -3,3 +3,4 @@ from .m3ae_distilBERT import DistilBERTVQA
 from .m3ae_t5_mm_encoder_input import T5VQA_MMEncoderInput
 from .m3ae_t5_combined_encoder_input import T5VQA_combinedEncoderInput
 from .m3ae_t5_text_encoder_input import T5VQA_TextEncoderInput
+from .m3ae_decoder import DecoderModel
