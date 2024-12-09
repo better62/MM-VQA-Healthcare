@@ -5,7 +5,10 @@ from torchmetrics import Metric
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 from rouge_score import rouge_scorer
 from transformers import PreTrainedTokenizerFast
+from transformers import BertTokenizerFast
 from collections import Counter
+import os
+os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
 class Accuracy(Metric):
     def __init__(self, dist_sync_on_step=False):
@@ -83,7 +86,9 @@ class ROUGE1Score(Metric):
 
     def update(self, preds, targets):
         for pred, target in zip(preds, targets):
-            rouge1_score = self.scorer.score(target[0], pred[0])['rouge1'].recall
+            pred_str = pred[0] if isinstance(pred, list) else pred
+            target_str = target[0] if isinstance(target, list) else target
+            rouge1_score = self.scorer.score(target_str, pred_str)['rouge1'].recall
             self.rouge1 += torch.tensor(rouge1_score, dtype=torch.float32)
             self.total += 1
 
@@ -100,7 +105,9 @@ class ROUGE2Score(Metric):
 
     def update(self, preds, targets):
         for pred, target in zip(preds, targets):
-            rouge2_score = self.scorer.score(target[0], pred[0])['rouge2'].recall
+            pred_str = pred[0] if isinstance(pred, list) else pred
+            target_str = target[0] if isinstance(target, list) else target
+            rouge2_score = self.scorer.score(target_str, pred_str)['rouge2'].recall
             self.rouge2 += torch.tensor(rouge2_score, dtype=torch.float32)
             self.total += 1
 
@@ -112,15 +119,21 @@ class ROUGE2Score(Metric):
 class BLEUScore(Metric):
     def __init__(self, dist_sync_on_step=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
+        self.tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
         self.add_state("score", default=torch.tensor(0.0), dist_reduce_fx="sum")
         self.add_state("total", default=torch.tensor(0.0), dist_reduce_fx="sum")
         self.smoothing = SmoothingFunction().method1 
 
     def update(self, preds, targets):
         for pred, ref in zip(preds, targets):
+            # Tokenize predictions 
+            pred_tokens = self.tokenizer.tokenize(pred[0] if isinstance(pred, list) else pred)
+            
+            # Tokenize references
+            ref_tokens = [self.tokenizer.tokenize(ref)]
 
             bleu_score = sentence_bleu(
-                [ref], pred, smoothing_function=self.smoothing
+                ref_tokens, pred_tokens, smoothing_function=self.smoothing
             )
             self.score += torch.tensor(bleu_score, dtype=torch.float32)
             self.total += 1

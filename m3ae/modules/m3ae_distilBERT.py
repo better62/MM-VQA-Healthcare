@@ -3,7 +3,8 @@ import torch
 import torch.nn as nn
 import pytorch_lightning as pl
 from torch.nn import functional as F
-from transformers import DistilBertTokenizer, DistilBertModel
+# from transformers import DistilBertTokenizer, DistilBertModel
+from transformers import AutoTokenizer, AutoModelForMaskedLM
 
 from m3ae.modules import M3AETransformerSS
 
@@ -22,28 +23,21 @@ class DistilBERTVQA(pl.LightningModule):
                 param.requires_grad = False
         
         # Initialize DistilBERT
-        local_model_path = os.path.abspath("downloaded/distilbert-base-uncased")
-        self.tokenizer = DistilBertTokenizer.from_pretrained(local_model_path, local_files_only=True)
-        self.distilbert = DistilBertModel.from_pretrained(local_model_path, local_files_only=True)
+        # local_model_path = os.path.abspath("downloaded/distilbert-base-uncased")
+        # self.tokenizer = DistilBertTokenizer.from_pretrained(local_model_path, local_files_only=True)
+        # self.distilbert = DistilBertModel.from_pretrained(local_model_path, local_files_only=True)
+
+        self.tokenizer = AutoTokenizer.from_pretrained("nlpie/clinical-distilbert")
+        self.distilbert = AutoModelForMaskedLM.from_pretrained("nlpie/clinical-distilbert")
 
         # Freeze DistilBERT layers if specified
         if freeze_distilbert_layers:
             for param in self.distilbert.parameters():
                 param.requires_grad = False
         
-        # Projection layer for M3AE features
-        self.feature_projection = nn.Linear(
-            m3ae_config["hidden_size"] * 2,  # M3AE outputs concatenated features
-            self.distilbert.config.hidden_size
-        )
-        
-        # Token prediction head
-        self.token_predictor = nn.Linear(
-            self.distilbert.config.hidden_size,
-            self.tokenizer.vocab_size
-        )
-        
         self.max_answer_length = max_answer_length
+        m3ae_t5_utils.set_metrics(self)
+        self.current_tasks = list()
 
     def unfreeze_top_layers(self, num_layers=2):
         """Unfreeze the top N layers of DistilBERT"""
@@ -55,19 +49,14 @@ class DistilBERTVQA(pl.LightningModule):
             for param in self.distilbert.transformer.layer[i].parameters():
                 param.requires_grad = True
 
-    def unfreeze_m3ae_layers(self, layers_to_unfreeze):
-        """Unfreeze specified layers or components of M3AE."""
-        for name, param in self.m3ae.named_parameters():
-            if any(layer_name in name for layer_name in layers_to_unfreeze):
-                param.requires_grad = True
-
     def forward(self, batch, answer_tokens=None):
         # Extract multi-modal features using M3AE
         m3ae_output = self.m3ae.infer(batch, mask_text=False, mask_image=False)
-        multi_modal_features = m3ae_output["multi_modal_cls_feats"]
-        
-        # Project features to DistilBERT dimension
-        projected_features = self.feature_projection(multi_modal_features)
+
+        multi_modal_cls_feats = torch.cat([
+            m3ae_output["multi_modal_image_feats"], 
+            m3ae_output["multi_modal_text_feats"]
+        ], dim=1)
         
         # Get DistilBERT embeddings for the question
         question_tokens = self.tokenizer(

@@ -93,7 +93,7 @@ def config():
     resume_from = None
     fast_dev_run = False
     val_check_interval = 1.0
-    test_only = True
+    test_only = False
     default_root_dir = "checkpoints"
 
     # below params varies with the environment
@@ -175,7 +175,7 @@ def task_finetune_vqa_vqa_rad():
     datasets = ["vqa_vqa_rad"]
     loss_names = _loss_names({"vqa": 1})
     batch_size = 64
-    max_epoch = 50
+    max_epoch = 20
     max_steps = 1000
     warmup_steps = 0.1
     draw_false_image = 0

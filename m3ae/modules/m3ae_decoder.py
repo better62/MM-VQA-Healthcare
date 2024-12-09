@@ -2,40 +2,40 @@ import math
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
-from transformers import RobertaTokenizer, RobertaModel
+from transformers import BertTokenizer, BertModel
 from torch.nn import functional as F
 
 from m3ae.modules import M3AETransformerSS
 from m3ae.modules import m3ae_t5_utils
 from m3ae.modules import objectives
 
-def PadMask(padded_input, input_lengths=None, pad_idx=None):
-    """ Create a mask to identify non-padding positions.
+# def PadMask(padded_input, input_lengths=None, pad_idx=None):
+#     """ Create a mask to identify non-padding positions.
 
-    Args:
-        padded_input: The input tensor with padding, shape (N, T, ...) or (N, T).
-        input_lengths: Optional, the actual lengths of each sequence before padding, shape (N,).
-        pad_idx: Optional, the index used for padding tokens.
+#     Args:
+#         padded_input: The input tensor with padding, shape (N, T, ...) or (N, T).
+#         input_lengths: Optional, the actual lengths of each sequence before padding, shape (N,).
+#         pad_idx: Optional, the index used for padding tokens.
 
-    Returns:
-        A mask tensor with shape (N, T), where padding positions are marked with 1 and non-padding positions are marked with 0.
-    """
+#     Returns:
+#         A mask tensor with shape (N, T), where padding positions are marked with 1 and non-padding positions are marked with 0.
+#     """
 
-    # If input is a 2D tensor (N, T), add an extra dimension
-    if padded_input.dim() == 2:
-        padded_input = padded_input.unsqueeze(-1)
+#     # If input is a 2D tensor (N, T), add an extra dimension
+#     if padded_input.dim() == 2:
+#         padded_input = padded_input.unsqueeze(-1)
 
-    N, T, _ = padded_input.shape
-    mask = torch.ones((N,T), dtype=torch.bool)
+#     N, T, _ = padded_input.shape
+#     mask = torch.ones((N,T), dtype=torch.bool)
 
-    if input_lengths is not None:
-        for i in range(N):
-            mask[i, :input_lengths[i]] = False
-    else:
-        # TODO: Infer the mask from the padding index.
-        mask = (padded_input.squeeze(-1) == pad_idx)  # Shape (N, T)
+#     if input_lengths is not None:
+#         for i in range(N):
+#             mask[i, :input_lengths[i]] = False
+#     else:
+#         # TODO: Infer the mask from the padding index.
+#         mask = (padded_input.squeeze(-1) == pad_idx)  # Shape (N, T)
 
-    return mask
+#     return mask
 
 
 def CausalMask(input_tensor):
@@ -111,6 +111,8 @@ class DecoderLayer(nn.Module):
         #   (2) add dropout
         #   (3) residual connections
         #   (4) layer normalization
+
+        # print(f"padded target size in decoder layer: {padded_targets.size()}")
         residual = padded_targets
 
         x_norm = self.pre_norm(padded_targets)
@@ -189,17 +191,9 @@ class Decoder(torch.nn.Module):
         self.dropout                = nn.Dropout(dropout)
 
 
-    def forward(self, padded_targets, target_lengths, cross_attn_feats):
+    def forward(self, padded_targets, padding_mask, cross_attn_feats):
 
-        # Processing targets
-        # create a padding mask for the padded_targets with <PAD_TOKEN>
-        # creating an attention mask for the future subsequences (look-ahead mask)
-        # computing embeddings for the target sequence
-        # computing Positional Encodings with the embedded targets and apply dropout
-
-        pad_mask_dec = None
-        if target_lengths is not None:
-            pad_mask_dec = PadMask(padded_input=padded_targets, input_lengths=target_lengths).to(padded_targets.device)
+        pad_mask_dec = ~padding_mask
         causal_mask = CausalMask(input_tensor=padded_targets).to(padded_targets.device)
 
         # Step1:  Apply the embedding
@@ -227,23 +221,53 @@ class Decoder(torch.nn.Module):
         batch_size = cross_attn_feats.size(0)
         target_seq = torch.full((batch_size, 1), tokenizer.cls_token_id, dtype=torch.long).to(cross_attn_feats.device)
         finished = torch.zeros(batch_size, dtype=torch.bool).to(cross_attn_feats.device)
-
-        for _ in range(self.max_len):
-            seq_out, runnint_att = self.forward(target_seq, None, cross_attn_feats)
+        
+        # Explicitly get the [SEP] token ID
+        sep_token_id = tokenizer.sep_token_id
+        
+        for step in range(self.max_len):
+            seq_out, running_att = self.forward(target_seq, None, cross_attn_feats)
             logits = torch.nn.functional.log_softmax(seq_out[:, -1], dim=1)
 
+            # Handle special token conditions more explicitly
             next_token = logits.argmax(dim=-1).unsqueeze(1)
+            
+            # Check if the next token is [SEP] or [EOS]
+            sep_eos_mask = (next_token.squeeze(-1) == sep_token_id) | \
+                        (next_token.squeeze(-1) == tokenizer.eos_token_id)
+            
+            # Update finished status
+            finished |= sep_eos_mask
+            
+            # Append next token
             target_seq = torch.cat([target_seq, next_token], dim=-1)
             
-            eos_mask = next_token.squeeze(-1) == tokenizer.eos_token_id
-            finished |= eos_mask
-            if finished.all(): break
-
-        # Remove the initial cls token and pad sequences
+            # Early stopping if all sequences are finished
+            if finished.all():
+                break
+        
+        # Remove the initial cls token
         target_seq = target_seq[:, 1:]
+        
+        # Truncate sequences at first [SEP] or [EOS]
+        for i in range(batch_size):
+            # Find the first occurrence of [SEP] or [EOS]
+            special_token_indices = torch.where(
+                (target_seq[i] == sep_token_id) | 
+                (target_seq[i] == tokenizer.eos_token_id)
+            )[0]
+            
+            if len(special_token_indices) > 0:
+                first_special_index = special_token_indices[0]
+                target_seq[i, first_special_index+1:] = tokenizer.pad_token_id
+        
+        # Pad sequences to max length
         max_length = target_seq.size(1)
-        target_seq = torch.nn.functional.pad(target_seq,
-            (0, self.max_len - max_length), value=tokenizer.pad_token_id)
+        target_seq = torch.nn.functional.pad(
+            target_seq, 
+            (0, self.max_len - max_length), 
+            value=tokenizer.pad_token_id
+        )
 
         return target_seq
 
@@ -254,7 +278,7 @@ class DecoderModel(pl.LightningModule):
         self.save_hyperparameters()
 
         # Init tokenizer
-        self.tokenizer = RobertaTokenizer.from_pretrained(m3ae_config['tokenizer'])
+        self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
         # Initialize M3AE model
         self.m3ae = M3AETransformerSS(m3ae_config)
@@ -296,6 +320,8 @@ class DecoderModel(pl.LightningModule):
             m3ae_output["multi_modal_text_feats"]
         ], dim=1)
 
+        # print(f"size of mm cls feats: {multi_modal_cls_feats.size()}")
+
         ret = dict()
 
 
@@ -306,13 +332,15 @@ class DecoderModel(pl.LightningModule):
                 tokenizer=self.tokenizer
             )
             
-            generated_texts_ = [self.tokenizer.decode(seq) for seq in generated_texts]
+            generated_texts_ = [self.tokenizer.decode(seq, skip_special_tokens=True) for seq in generated_texts]
             ret.update({'outputs': generated_texts_})
             return ret
 
         else:
             # Training mode
             targets = batch["vqa_answer"]
+            targets = [ans[0] for ans in targets]
+            # print(f"\n training targets {targets}")
             
             # Tokenize and pad targets
             target_tokens = self.tokenizer(
@@ -322,26 +350,31 @@ class DecoderModel(pl.LightningModule):
                 return_tensors="pt", 
                 max_length=self.max_answer_length
             ).input_ids.to(self.device)
+
+            # remove start of sequence token
+            target_tokens = target_tokens[:, 1:]
             
-            # Create target lengths
-            target_lengths = (target_tokens != self.tokenizer.pad_token_id).sum(dim=1)
+            padding_mask = torch.ne(target_tokens, self.tokenizer.pad_token_id)
+            # print(f"\n training targets {targets}")
+            # print(f"\n training target tokens: {target_tokens}")
 
             # Get model outputs
             output, attention_weights = self.decoder(
                 target_tokens, 
-                target_lengths, 
+                padding_mask, 
                 multi_modal_cls_feats
             )
             
             # Compute loss with proper padding mask
-            padding_mask = torch.ne(target_tokens, self.tokenizer.pad_token_id)
-            ce_loss = self.criterion(output.transpose(1, 2), target_tokens)
+            # print(f"\n model outputs: {output}")
+            
+            ce_loss = self.criterion(output.transpose(1, 2), target_tokens) * padding_mask
             loss = ce_loss.sum() / padding_mask.sum()
             
             # Decode generated text for metrics
             with torch.no_grad():
                 generated_texts = [
-                    self.tokenizer.decode(seq) 
+                    self.tokenizer.decode(seq, skip_special_tokens=True) 
                     for seq in torch.argmax(output, dim=-1)
                 ]
                 generated_texts_ = [[item] for item in generated_texts]

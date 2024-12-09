@@ -29,7 +29,7 @@ def main(_config):
 
 
     # Module
-    model = T5VQA_MMEncoderInput(_config)
+    model = T5VQA_TextEncoderInput(_config)
     model.unfreeze_top_layers(num_encoder_layers=_config["unfreeze_num_encoder_layers"],num_decoder_layers=_config["unfreeze_num_decoder_layers"]) # Unfreeze the top 1 layers of DistilBERT
 
     # Loggers
