@@ -105,6 +105,7 @@ def config():
     num_nodes = 1
     load_path = ""
     decoder_load_path = ""
+    load_path_t5 = ""
     num_workers = 8
     precision = 32
     gpu_device_number = 0
