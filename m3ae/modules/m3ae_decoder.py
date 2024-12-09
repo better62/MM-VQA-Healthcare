@@ -9,35 +9,6 @@ from m3ae.modules import M3AETransformerSS
 from m3ae.modules import m3ae_t5_utils
 from m3ae.modules import objectives
 
-# def PadMask(padded_input, input_lengths=None, pad_idx=None):
-#     """ Create a mask to identify non-padding positions.
-
-#     Args:
-#         padded_input: The input tensor with padding, shape (N, T, ...) or (N, T).
-#         input_lengths: Optional, the actual lengths of each sequence before padding, shape (N,).
-#         pad_idx: Optional, the index used for padding tokens.
-
-#     Returns:
-#         A mask tensor with shape (N, T), where padding positions are marked with 1 and non-padding positions are marked with 0.
-#     """
-
-#     # If input is a 2D tensor (N, T), add an extra dimension
-#     if padded_input.dim() == 2:
-#         padded_input = padded_input.unsqueeze(-1)
-
-#     N, T, _ = padded_input.shape
-#     mask = torch.ones((N,T), dtype=torch.bool)
-
-#     if input_lengths is not None:
-#         for i in range(N):
-#             mask[i, :input_lengths[i]] = False
-#     else:
-#         # TODO: Infer the mask from the padding index.
-#         mask = (padded_input.squeeze(-1) == pad_idx)  # Shape (N, T)
-
-#     return mask
-
-
 def CausalMask(input_tensor):
     """
     Create an attention mask for causal self-attention based on input lengths.
@@ -49,13 +20,8 @@ def CausalMask(input_tensor):
         attn_mask (torch.Tensor): The causal self-attention mask of shape (T, T)
     """
     T = input_tensor.shape[1]  # Sequence length
-    # TODO: Initialize attn_mask as a tensor of zeros with the right shape.
     attn_mask = torch.zeros((T,T), dtype=torch.bool) # Shape (T, T)
-
-    # TODO: Create a lower triangular matrix to form the causal mask.
     causal_mask = ~torch.tril(torch.ones((T,T), dtype=torch.bool), diagonal=0) # Lower triangular matrix
-
-    # TODO: Combine the initial mask with the causal mask.
     attn_mask = attn_mask | causal_mask
 
     return attn_mask
@@ -65,13 +31,10 @@ class PositionalEncoding(torch.nn.Module):
 
     def __init__(self, d_model, max_len=1024):
         super().__init__()
-        # self.d_model = d_model
-        # self.max_len = max_len
-        # Initialize a tensor to hold the positional encodings
-        pe          = torch.zeros(max_len, d_model)
+        pe = torch.zeros(max_len, d_model)
 
         # Create a tensor representing the positions (0 to max_len-1)
-        position    = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
 
         # Calculate the division term for the sine and cosine functions
         # This term creates a series of values that decrease geometrically, used to generate varying frequencies for positional encodings
@@ -106,13 +69,6 @@ class DecoderLayer(nn.Module):
 
     def forward(self, padded_targets, enc_output, pad_mask_dec, slf_attn_mask):
 
-        #   Step 1: Self Attention
-        #   (1) pass through the Multi-Head Attention (Hint: you need to store weights here as part of the return value)
-        #   (2) add dropout
-        #   (3) residual connections
-        #   (4) layer normalization
-
-        # print(f"padded target size in decoder layer: {padded_targets.size()}")
         residual = padded_targets
 
         x_norm = self.pre_norm(padded_targets)
@@ -122,14 +78,6 @@ class DecoderLayer(nn.Module):
         x = residual + self.dropout1(mha1_output)
         residual = x
         x = self.layernorm1(x)
-
-
-        #   Step 2: Cross Attention
-        #   (1) pass through the Multi-Head Attention (Hint: you need to store weights here as part of the return value)
-              #  think about if key,value,query here are the same as the previous one?
-        #   (2) add dropout
-        #   (3) residual connections
-        #   (4) layer normalization
 
         if enc_output is None:
             mha2_output       = self.identity(padded_targets)
@@ -150,12 +98,6 @@ class DecoderLayer(nn.Module):
         residual = x
         x = self.layernorm2(x)
 
-
-        #   Step 3: Feed Forward Network
-        #   (1) pass through the FFN
-        #   (2) add dropout
-        #   (3) residual connections
-        #   (4) layer normalization
         ffn_output = self.ffn(x)
         x = self.dropout3(ffn_output)
         x = x + residual
@@ -193,7 +135,8 @@ class Decoder(torch.nn.Module):
 
     def forward(self, padded_targets, padding_mask, cross_attn_feats):
 
-        pad_mask_dec = ~padding_mask
+        pad_mask_dec = ~padding_mask if padding_mask is not None else None
+
         causal_mask = CausalMask(input_tensor=padded_targets).to(padded_targets.device)
 
         # Step1:  Apply the embedding
@@ -293,6 +236,13 @@ class DecoderModel(pl.LightningModule):
             target_vocab_size=self.tokenizer.vocab_size
         )
 
+        # Load decoder weights from checkpoint
+        if m3ae_config["decoder_load_path"] != "":
+            ckpt = torch.load(m3ae_config["decoder_load_path"], map_location="cpu")
+            state_dict = ckpt["model_state_dict"]
+            self.decoder.load_state_dict(state_dict, strict=True)
+            print("\n loaded decoder checkpoint weights successfully")
+
         # Freeze M3AE if specified
         if freeze_m3ae:
             for param in self.m3ae.parameters():
@@ -307,11 +257,8 @@ class DecoderModel(pl.LightningModule):
         self.criterion = nn.CrossEntropyLoss(ignore_index=self.tokenizer.pad_token_id)
     
 
-
     def forward(self, batch, test=False):
         # Prepare encoder inputs with combined visual and textual features
-
-
         # Extract multi-modal features from M3AE
         m3ae_output = self.m3ae.infer(batch, mask_text=False, mask_image=False)
 
@@ -319,8 +266,6 @@ class DecoderModel(pl.LightningModule):
             m3ae_output["multi_modal_image_feats"], 
             m3ae_output["multi_modal_text_feats"]
         ], dim=1)
-
-        # print(f"size of mm cls feats: {multi_modal_cls_feats.size()}")
 
         ret = dict()
 
@@ -353,10 +298,9 @@ class DecoderModel(pl.LightningModule):
 
             # remove start of sequence token
             target_tokens = target_tokens[:, 1:]
+            # print(f"targets: {targets} \n")
             
             padding_mask = torch.ne(target_tokens, self.tokenizer.pad_token_id)
-            # print(f"\n training targets {targets}")
-            # print(f"\n training target tokens: {target_tokens}")
 
             # Get model outputs
             output, attention_weights = self.decoder(
@@ -364,9 +308,6 @@ class DecoderModel(pl.LightningModule):
                 padding_mask, 
                 multi_modal_cls_feats
             )
-            
-            # Compute loss with proper padding mask
-            # print(f"\n model outputs: {output}")
             
             ce_loss = self.criterion(output.transpose(1, 2), target_tokens) * padding_mask
             loss = ce_loss.sum() / padding_mask.sum()
@@ -422,6 +363,9 @@ class DecoderModel(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         m3ae_t5_utils.set_task(self)
         output = self(batch)
+        torch.save({"model_state_dict": self.decoder.state_dict(),},
+        "/home/vdir00804/MM-VQA-Healthcare/checkpoints/decoder.ckpt"
+        )
 
     def validation_epoch_end(self, outs):
         m3ae_t5_utils.epoch_wrapup(self)

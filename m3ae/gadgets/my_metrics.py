@@ -126,11 +126,12 @@ class BLEUScore(Metric):
 
     def update(self, preds, targets):
         for pred, ref in zip(preds, targets):
-            # Tokenize predictions 
+            # Tokenize predictions
             pred_tokens = self.tokenizer.tokenize(pred[0] if isinstance(pred, list) else pred)
             
             # Tokenize references
-            ref_tokens = [self.tokenizer.tokenize(ref)]
+            ref_tokens = [self.tokenizer.tokenize(pred[0] if isinstance(pred, list) else pred)]
+            # ref_tokens = [self.tokenizer.tokenize(ref)]
 
             bleu_score = sentence_bleu(
                 ref_tokens, pred_tokens, smoothing_function=self.smoothing

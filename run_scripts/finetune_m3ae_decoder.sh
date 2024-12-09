@@ -15,7 +15,7 @@ per_gpu_batchsize=8
 
 # '''
 # === VQA-RAD ===
-python3.8 main_decoder_m3ae.py with data_root=data/finetune_arrows/ \
+python3.8 main_decoder_m3ae.py with data_root=data/finetune_arrows_vqa_rad/ \
  num_workers=8 \
  max_epoch=70 \
  t5_max_length=12 \
@@ -27,7 +27,8 @@ python3.8 main_decoder_m3ae.py with data_root=data/finetune_arrows/ \
  clip16 text_roberta \
  image_size=384 \
  tokenizer=downloaded/roberta-base \
- load_path=downloaded/finetuned/vqa/vqa_rad/m3ae_finetuned_vqa_vqa_rad_77.4.ckpt
+ load_path=downloaded/finetuned/vqa/vqa_rad/m3ae_finetuned_vqa_vqa_rad_77.4.ckpt \
+ decoder_load_path=downloaded/finetuned/vqa/vqa_rad/decoder.ckpt
 
 # python3.8 main_t5_m3ae.py with data_root=data/finetune_arrows/ \
 #  num_workers=0 \

@@ -104,6 +104,7 @@ def config():
     num_gpus = 1
     num_nodes = 1
     load_path = ""
+    decoder_load_path = ""
     num_workers = 8
     precision = 32
     gpu_device_number = 0
@@ -155,7 +156,7 @@ def task_finetune_vqa_ehr_xqa():
     draw_false_image = 0
     learning_rate = 5e-6
     val_check_interval = 1.0
-    lr_multiplier_head = 50
+    lr_multiplier_head = 100
     lr_multiplier_multi_modal = 5
     tokenizer = "bert-base-uncased"
     max_text_len = 32
@@ -165,7 +166,7 @@ def task_finetune_vqa_ehr_xqa():
     val_transform_keys = ["clip"]
     input_image_embed_size = 768
     image_size = 576
-    vqa_label_size = 700
+    vqa_label_size = 498
     max_text_len = 32
 
 
