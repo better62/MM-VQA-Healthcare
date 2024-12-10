@@ -114,6 +114,7 @@ def config():
     melinda_label_size = {"i_meth": 85, "p_meth": 45, "i_meth_label": 15, "p_meth_label": 7}
 
     #WANDB setting
+    project_name = "VQA-RAD-T5"
     api_key = "20be045acce9a973c8a3780aaba86927c1fc5b83"
 
 @ex.named_config

@@ -149,7 +149,7 @@ def compute_vqa(pl_module, batch, test, outputs, loss, labels):
     rouge2 = getattr(pl_module, f"{phase}_vqa_rouge2")(ret["vqa_logits"], ret["vqa_labels"])
     bleu = getattr(pl_module, f"{phase}_vqa_bleu_score")(ret["vqa_logits"], ret["vqa_labels"])
 
-    # print(f'model output: {ret["vqa_logits"]},\n labels: {ret["vqa_labels"]}')
+    print(f'model output: {ret["vqa_logits"]},\n labels: {ret["vqa_labels"]}')
 
     # score = getattr(pl_module, f"{phase}_vqa_score")(ret["vqa_logits"], ret["vqa_targets"], ret["vqa_answer_types"])
     # pl_module.log(f"{phase}/vqa/score", score)
@@ -169,9 +169,9 @@ def compute_vqa_m3ae(pl_module, batch, test):
         label2ans = json.load(f)
     
     predictions = torch.argmax(vqa_logits, dim=1)
-    # print(f"predictions {predictions}")
+    #print(f"predictions {predictions}")
     english_answers = [label2ans[str(pred.item())] for pred in predictions]
-    # print(f"predictions in english: {english_answers}")
+    #print(f"predictions in english: {english_answers}")
 
     vqa_targets = torch.zeros(len(vqa_logits), pl_module.hparams.config["vqa_label_size"]).to(pl_module.device)
 
@@ -185,7 +185,7 @@ def compute_vqa_m3ae(pl_module, batch, test):
             vqa_targets[i, l] = s
 
     vqa_answers = [answer for l in vqa_answers for answer in l]
-    # print(f"ground truth answers in english {vqa_answers}")
+    #print(f"ground truth answers in english {vqa_answers}")
     vqa_loss = (F.binary_cross_entropy_with_logits(vqa_logits, vqa_targets) * vqa_targets.shape[1])
 
     ret = {
