@@ -42,6 +42,33 @@ class T5VQA_TextEncoderInput(pl.LightningModule):
         m3ae_t5_utils.set_metrics(self)
         self.current_tasks = list()
 
+        # Load checkpoint if path is provided
+        if m3ae_config["load_path"] != "":
+            self.load_model_checkpoint(m3ae_config["load_path"])        
+
+    def load_model_checkpoint(self, ckpt_path):
+        # Load the checkpoint
+        ckpt = torch.load(ckpt_path, map_location="cpu")
+        state_dict = ckpt["state_dict"]
+        
+        # Load M3AE weights with positional encoding adjustment if needed
+        if "m3ae" in state_dict:
+            if self.m3ae.is_clip:
+                state_dict = adapt_position_encoding(state_dict,
+                                                     after=self.m3ae.hparams.config["image_size"],
+                                                     patch_size=self.m3ae.hparams.config['patch_size'])
+            else:
+                state_dict = swin_adapt_position_encoding(state_dict,
+                                                          after=self.m3ae.hparams.config["image_size"])
+            self.m3ae.load_state_dict(state_dict, strict=False)
+        
+        # Load T5 weights
+        t5_state_dict = {k[len("t5."):]: v for k, v in state_dict.items() if k.startswith("t5.")}
+        self.t5.load_state_dict(t5_state_dict, strict=False)
+
+        print("Checkpoint loaded successfully!")
+            
+
     
     def projection_layer(self, input_dim, output_dim=512):
         linear_layer = nn.Linear(input_dim, output_dim).to(self.device)

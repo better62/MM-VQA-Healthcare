@@ -10,7 +10,7 @@ from m3ae.modules import m3ae_t5_utils
 from m3ae.modules import objectives
 
 class T5VQA_MMEncoderInput(pl.LightningModule):
-    def __init__(self, m3ae_config, max_answer_length=80, freeze_m3ae=True, freeze_t5_layers=True):
+    def __init__(self, m3ae_config, freeze_m3ae=True, freeze_t5_layers=True):
         super().__init__()
         self.save_hyperparameters()
 
@@ -37,10 +37,35 @@ class T5VQA_MMEncoderInput(pl.LightningModule):
             self.t5.config.hidden_size
         )
         
-        self.max_answer_length = max_answer_length
+        self.max_answer_length = m3ae_config["t5_max_length"]
         m3ae_t5_utils.set_metrics(self)
         self.current_tasks = list()
 
+        # Load checkpoint if path is provided
+        if m3ae_config["load_path"] != "":
+            self.load_model_checkpoint(m3ae_config["load_path"])        
+
+    def load_model_checkpoint(self, ckpt_path):
+        # Load the checkpoint
+        ckpt = torch.load(ckpt_path, map_location="cpu")
+        state_dict = ckpt["state_dict"]
+        
+        # Load M3AE weights with positional encoding adjustment if needed
+        if "m3ae" in state_dict:
+            if self.m3ae.is_clip:
+                state_dict = adapt_position_encoding(state_dict,
+                                                     after=self.m3ae.hparams.config["image_size"],
+                                                     patch_size=self.m3ae.hparams.config['patch_size'])
+            else:
+                state_dict = swin_adapt_position_encoding(state_dict,
+                                                          after=self.m3ae.hparams.config["image_size"])
+            self.m3ae.load_state_dict(state_dict, strict=False)
+        
+        # Load T5 weights
+        t5_state_dict = {k[len("t5."):]: v for k, v in state_dict.items() if k.startswith("t5.")}
+        self.t5.load_state_dict(t5_state_dict, strict=False)
+
+        print("Checkpoint loaded successfully!")
     
     def projection_layer(self, input_dim, output_dim=512):
         linear_layer = nn.Linear(input_dim, output_dim).to(self.device)
@@ -193,7 +218,7 @@ class T5VQA_MMEncoderInput(pl.LightningModule):
                 skip_special_tokens=True
             )
             generated_texts_ = [[item] for item in generated_texts]
-            ret.update({'outputs': generated_texts_})
+            #ret.update({'outputs': generated_texts_})
             return ret
 
         else:
@@ -207,14 +232,17 @@ class T5VQA_MMEncoderInput(pl.LightningModule):
                 truncation=True,
                 return_tensors="pt"
             ).input_ids.to(self.device)
-            
+            #print(' : ',labels) # 8x1 [['no'], ['no'], ['abdomen'], ['yes'], ['right upper lobe'], ['yes'], ['no'], ['no']]
+            #print('flattened_labels: ',flattened_labels) # ['no', 'no', 'abdomen', 'yes', 'right upper lobe', 'yes', 'no', 'no']
+            #print('label_tokens: ',label_tokens) # 8x6 shape, contains integer (one answer -> 1x6)
             # Get model outputs
             outputs = self.t5(
                 encoder_outputs=encoder_outputs,
                 labels=label_tokens,
                 return_dict=True
             )
-            
+            #print('outputs shape: ',outputs.logits.shape) # torch.Size([8, 6, 32128])
+            #print('outputs: ',outputs[:2]) # torch.Size([8, 6, 32128]) prob values. 32128== T5's vocab size
             # For metrics, we need to generate text even during training
             with torch.no_grad():
                 generated_outputs = self.t5.generate(
@@ -226,13 +254,28 @@ class T5VQA_MMEncoderInput(pl.LightningModule):
                     eos_token_id=self.tokenizer.eos_token_id,
                     return_dict_in_generate=True,
                 )
-                
+                #print("Generated sequences shape:", generated_outputs.sequences.shape) # torch.Size([8, 80]) 80: T5 generation max_length
                 # Decode generated text
+                #print('generated_outputs: ',generated_outputs,'\n\n')
+                # BeamSearchEncoderDecoderOutput(sequences=tensor([[ 0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                # 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                # 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                # 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                # 0,  0,  0,  0,  0,  0,  0,  0],
+                # [ 0,  3,  6,  3,  6,  3, 11,  3,  6,  3,  6,  3,  6,  3, 11,  3,  6,  3,
+                # 6,  3,  6,  3, 11,  3,  6,  3,  6,  3,  6,  3, 11,  3,  6,  3,  6,  3,
+                # 11,  3,  6,  3,  6,  3, 11,  3,  6,  3,  6,  3,  6,  3, 11,  3,  6,  3,
+                # 6,  3,  6,  3, 11,  3,  6,  3,  6,  3,  6,  3,  3,  3,  3,  3,  3,  3,
+                # 3,  3,  3,  3,  3,  3,  3,  3],
                 generated_texts = self.tokenizer.batch_decode(
                     generated_outputs.sequences, 
                     skip_special_tokens=True
                 )
-
+                # for i in range(len(generated_outputs.sequences)):
+                    # print("Generated sequences:", generated_outputs.sequences[i]) 
+                    # print('generated_texts: ',generated_texts[i])
+                #print('generated_texts: ',len(generated_texts)) # 8
+                #generated_texts:  ['', ',, a, e,,, s,,,,,,,   ,,,, s,,, ,, ,, e, , , ,  ,', "s '' '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''", ',', 'and        ,                                ,', 's. not not a s... s. ssmanmanman s dd ss. s.. s dd.. n  not not... s.. s s. s.... s', '', '']
                 generated_texts_ = [[item] for item in generated_texts]
             
             ret.update(objectives.compute_vqa(

@@ -308,7 +308,7 @@ class DecoderModel(pl.LightningModule):
                 padding_mask, 
                 multi_modal_cls_feats
             )
-            
+            #print("output: ",output.shape,'\n\n') # prob value with shape torch.Size([8, 4, 30522])
             ce_loss = self.criterion(output.transpose(1, 2), target_tokens) * padding_mask
             loss = ce_loss.sum() / padding_mask.sum()
             
@@ -318,8 +318,10 @@ class DecoderModel(pl.LightningModule):
                     self.tokenizer.decode(seq, skip_special_tokens=True) 
                     for seq in torch.argmax(output, dim=-1)
                 ]
+                #print("generated_texts: ",generated_texts,'\n\n') # generated_texts:  ['infantsik paternal paternal', 'infants virgin paternal paternal', '##nsteinik paternal paternal', '##ectionik paternal paternal', 'highlight ᄑ martinaik', '##ectionik paternal paternal', 'infantsik paternal paternal', 'infantsik paternal paternal'] 
                 generated_texts_ = [[item] for item in generated_texts]
-            
+                #print("generated_texts_: ",generated_texts_,'\n\n') # generated_texts_:  [['infantsik paternal paternal'], ['infants virgin paternal paternal'], ['##nsteinik paternal paternal'], ['##ectionik paternal paternal'], ['highlight ᄑ martinaik'], ['##ectionik paternal paternal'], ['infantsik paternal paternal'], ['infantsik paternal paternal']] 
+
             ret.update(objectives.compute_vqa(
                 self, 
                 batch, 
