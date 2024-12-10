@@ -26,6 +26,11 @@ class T5VQA_MMEncoderInput(pl.LightningModule):
         self.tokenizer = T5Tokenizer.from_pretrained('t5-small')
         self.t5 = T5ForConditionalGeneration.from_pretrained('t5-small')
 
+        if m3ae_config["load_path_t5"] != "":
+            ckpt = torch.load(m3ae_config["load_path_t5"], map_location="cpu")
+            state_dict = ckpt["state_dict"]
+            self.load_state_dict(state_dict, strict=False)
+
         # Freeze T5 layers if specified
         if freeze_t5_layers:
             for param in self.t5.parameters():
