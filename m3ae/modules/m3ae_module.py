@@ -141,6 +141,15 @@ class M3AETransformerSS(pl.LightningModule):
             print("loading successful")
         # == End  : 5. Load Models For Testing ==
 
+    def freeze_all_except_vqa(self, model):
+        # Freeze all layers
+        for name, param in model.named_parameters():
+            param.requires_grad = False
+        
+        # Unfreeze the VQA head
+        for name, param in model.vqa_head.named_parameters():
+            param.requires_grad = True
+
     def random_masking(self, x, mask_ratio):
         x_ = x[:, :1]
         x = x[:, 1:]

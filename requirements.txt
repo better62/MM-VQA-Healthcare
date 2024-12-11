@@ -18,6 +18,3 @@ sentencepiece
 rouge_score
 nltk
 wandb
-matplotlib
-seaborn
-opencv-python

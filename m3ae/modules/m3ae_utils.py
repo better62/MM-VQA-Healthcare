@@ -4,7 +4,7 @@ from transformers import get_polynomial_decay_schedule_with_warmup, get_cosine_s
 from transformers.optimization import AdamW
 
 from .objectives import compute_irtr_recall
-from ..gadgets.my_metrics import Accuracy, Scalar, VQARADScore, ROUGE1Score, ROUGE2Score, BLEUScore
+from ..gadgets.my_metrics import Accuracy, Scalar, VQARADScore, ROUGE1Score, ROUGE2Score, BLEUScore, VQAExactMatch
 
 
 def set_metrics(pl_module):
@@ -20,18 +20,21 @@ def set_metrics(pl_module):
                     setattr(pl_module, f"train_{k}_rouge2", ROUGE2Score())
                     setattr(pl_module, f"train_{k}_bleu_score", BLEUScore())
                     setattr(pl_module, f"train_{k}_loss", Scalar())
+                    setattr(pl_module, f"train_{k}_exact_match", VQAExactMatch())
                 else:
                     setattr(pl_module, f"val_{k}_score", VQARADScore())
                     setattr(pl_module, f"val_{k}_rouge1", ROUGE1Score())
                     setattr(pl_module, f"val_{k}_rouge2", ROUGE2Score())
                     setattr(pl_module, f"val_{k}_bleu_score", BLEUScore())
                     setattr(pl_module, f"val_{k}_loss", Scalar())
+                    setattr(pl_module, f"val_{k}_exact_match", VQAExactMatch())
 
                     setattr(pl_module, f"test_{k}_score", VQARADScore())
                     setattr(pl_module, f"test_{k}_rouge1",ROUGE1Score())
                     setattr(pl_module, f"test_{k}_rouge2",ROUGE2Score())
                     setattr(pl_module, f"test_{k}_bleu_score", BLEUScore())
                     setattr(pl_module, f"test_{k}_loss", Scalar())
+                    setattr(pl_module, f"test_{k}_exact_match", VQAExactMatch())
 
 
             elif k == "cls":
@@ -74,11 +77,11 @@ def epoch_wrapup(pl_module, test=False):
             getattr(pl_module, f"{phase}_{loss_name}_loss").reset()
 
             # Log additional metrics: ROUGE1, ROUGE2, BLEU 
-            metrics = ["rouge1", "rouge2", "bleu_score"]
+            metrics = ["rouge1", "rouge2", "bleu_score", "exact_match"]
             for metric in metrics:
                 metric_value = getattr(pl_module, f"{phase}_{loss_name}_{metric}").compute()
                 #pl_module.log(f"{loss_name}/{phase}/{metric}", metric_value)
-                pl_module.log(f"{phase}/{metric}", metric_value)
+                pl_module.log(f"{phase}/{metric}_epoch", metric_value)
                 getattr(pl_module, f"{phase}_{loss_name}_{metric}").reset()    
 
 

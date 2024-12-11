@@ -4,47 +4,31 @@ import torch.nn as nn
 import pytorch_lightning as pl
 from transformers import BertTokenizer, BertModel
 from torch.nn import functional as F
+import numpy as np
+import torch.nn.functional as F
 
 from m3ae.modules import M3AETransformerSS
 from m3ae.modules import m3ae_t5_utils
 from m3ae.modules import objectives
 
 def CausalMask(input_tensor):
-    """
-    Create an attention mask for causal self-attention based on input lengths.
-
-    Args:
-        input_tensor (torch.Tensor): The input tensor of shape (N, T, *).
-
-    Returns:
-        attn_mask (torch.Tensor): The causal self-attention mask of shape (T, T)
-    """
     T = input_tensor.shape[1]  # Sequence length
     attn_mask = torch.zeros((T,T), dtype=torch.bool) # Shape (T, T)
     causal_mask = ~torch.tril(torch.ones((T,T), dtype=torch.bool), diagonal=0) # Lower triangular matrix
     attn_mask = attn_mask | causal_mask
 
-    return attn_mask
+    return causal_mask
 
 class PositionalEncoding(torch.nn.Module):
-    ''' Position Encoding from Attention Is All You Need Paper '''
 
     def __init__(self, d_model, max_len=1024):
         super().__init__()
         pe = torch.zeros(max_len, d_model)
 
-        # Create a tensor representing the positions (0 to max_len-1)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-
-        # Calculate the division term for the sine and cosine functions
-        # This term creates a series of values that decrease geometrically, used to generate varying frequencies for positional encodings
         div_term    = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
-
-        # Compute the positional encodings using sine and cosine functions
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
-
-        # Reshape the positional encodings tensor and make it a buffer
         pe = pe.unsqueeze(0)
         self.register_buffer("pe", pe)
 
@@ -103,7 +87,6 @@ class DecoderLayer(nn.Module):
         x = x + residual
         x = self.layernorm3(x)
 
-        # return the output of the decoder layer
         return x, mha1_attn_weights, mha2_attn_weights
 
 
@@ -127,8 +110,8 @@ class Decoder(torch.nn.Module):
             for _ in range(num_layers)
         ])
 
-        self.target_embedding       = nn.Embedding(target_vocab_size, d_model)  # use torch.nn.Embedding
-        self.positional_encoding    = PositionalEncoding(d_model) #max_len
+        self.target_embedding       = nn.Embedding(target_vocab_size, d_model)  
+        self.positional_encoding    = PositionalEncoding(d_model) 
         self.final_linear           = nn.Linear(d_model, target_vocab_size)
         self.dropout                = nn.Dropout(dropout)
 
@@ -139,28 +122,23 @@ class Decoder(torch.nn.Module):
 
         causal_mask = CausalMask(input_tensor=padded_targets).to(padded_targets.device)
 
-        # Step1:  Apply the embedding
         target_embed = self.target_embedding(padded_targets)
 
-        # Step2:  Apply positional encoding
         target_embed += self.positional_encoding(target_embed)
         target_embed = self.dropout(target_embed)
 
-        # Step4: Pass through decoder layers
         runnint_att = {}
         for i in range(self.num_layers):
             x, runnint_att['layer{}_dec_self'.format(i + 1)], runnint_att['layer{}_dec_cross'.format(i + 1)] = self.dec_layers[i](
                 target_embed, cross_attn_feats, pad_mask_dec, causal_mask
                 )
 
-        # Step5: linear layer (Final Projection) for next character prediction
         seq_out = self.final_linear(x)
 
         return seq_out, runnint_att
 
 
-    def recognize_greedy_search(self, cross_attn_feats, tokenizer):
-        ''' Greedy search generation with multi-modal features '''
+    def search_path(self, cross_attn_feats, tokenizer):
         batch_size = cross_attn_feats.size(0)
         target_seq = torch.full((batch_size, 1), tokenizer.cls_token_id, dtype=torch.long).to(cross_attn_feats.device)
         finished = torch.zeros(batch_size, dtype=torch.bool).to(cross_attn_feats.device)
@@ -172,29 +150,19 @@ class Decoder(torch.nn.Module):
             seq_out, running_att = self.forward(target_seq, None, cross_attn_feats)
             logits = torch.nn.functional.log_softmax(seq_out[:, -1], dim=1)
 
-            # Handle special token conditions more explicitly
             next_token = logits.argmax(dim=-1).unsqueeze(1)
             
             # Check if the next token is [SEP] or [EOS]
             sep_eos_mask = (next_token.squeeze(-1) == sep_token_id) | \
                         (next_token.squeeze(-1) == tokenizer.eos_token_id)
-            
-            # Update finished status
             finished |= sep_eos_mask
-            
-            # Append next token
             target_seq = torch.cat([target_seq, next_token], dim=-1)
-            
-            # Early stopping if all sequences are finished
             if finished.all():
                 break
         
-        # Remove the initial cls token
         target_seq = target_seq[:, 1:]
         
-        # Truncate sequences at first [SEP] or [EOS]
         for i in range(batch_size):
-            # Find the first occurrence of [SEP] or [EOS]
             special_token_indices = torch.where(
                 (target_seq[i] == sep_token_id) | 
                 (target_seq[i] == tokenizer.eos_token_id)
@@ -204,7 +172,6 @@ class Decoder(torch.nn.Module):
                 first_special_index = special_token_indices[0]
                 target_seq[i, first_special_index+1:] = tokenizer.pad_token_id
         
-        # Pad sequences to max length
         max_length = target_seq.size(1)
         target_seq = torch.nn.functional.pad(
             target_seq, 
@@ -247,7 +214,6 @@ class DecoderModel(pl.LightningModule):
         if freeze_m3ae:
             for param in self.m3ae.parameters():
                 param.requires_grad = False
-        
 
         self.max_answer_length = max_answer_length
         self.min_answer_length = min_answer_length
@@ -256,36 +222,117 @@ class DecoderModel(pl.LightningModule):
 
         self.criterion = nn.CrossEntropyLoss(ignore_index=self.tokenizer.pad_token_id)
     
+    def visualize_attention_heatmap(self, batch):
+        """
+        Generate and overlay attention heatmap on the input image.
+        
+        Args:
+            batch: Input batch dictionary
+        
+        Returns:
+            matplotlib figure with heatmap overlay.
+        """
+        # Run inference with attention output
+        with torch.no_grad():
+            ret = self.m3ae.infer(batch, output_attentions=True)
+        image2text_attns = output['attentions']['image2text_attns'][layer_idx][0]  # Get attention weights of the last layer
+        
+        # Average over 12 attention heads
+        avg_attention = torch.mean(image2text_attns, dim=1)  # Shape: [16, 577, 32]
+
+        # Set up the 4x4 grid for 16 images
+        fig, axes = plt.subplots(4, 4, figsize=(15, 15))
+        axes = axes.flatten()  # Flatten axes for easier indexing
+        batch_size = avg_attention.shape[0]  # Batch size
+
+        for i in range(batch_size):
+            # Extract the attention map for each image
+            patch_attention = avg_attention[i].mean(dim=0).cpu().numpy()
+
+            # Remove the [CLS] token (first row and column)
+            patch_attention = patch_attention[1:]  # Remove 1st row and 1st column
+
+            # Calculate patch grid size dynamically
+            patch_size = int(np.sqrt(patch_attention.size))  # Calculate patch grid size from number of elements
+            patch_attention = patch_attention.reshape(patch_size, patch_size)
+
+            # Upsample attention to match the image dimensions
+            upsampled_attention = F.interpolate(
+                torch.tensor(patch_attention).unsqueeze(0).unsqueeze(0),
+                size=(384, 384),  # Target image size
+                mode="bilinear",
+                align_corners=False
+            ).squeeze().numpy()
+
+            # Get the corresponding image and text
+            original_img = ret['images'][i].permute(1, 2, 0).cpu().numpy()
+            text_prompt = batch['text'][i] if 'text' in batch else f"Image {i+1}"
+
+            # Plot the image
+            axes[i].imshow(original_img)
+
+            # Overlay attention heatmap
+            sns.heatmap(
+                upsampled_attention,
+                alpha=0.5,
+                cmap='viridis',
+                cbar=False,
+                square=True,
+                ax=axes[i]
+            )
+
+            # Add text prompt as a title
+            wrapped_text = "\n".join(textwrap.wrap(text_prompt, width=30))
+            axes[i].set_title(wrapped_text, fontsize=10, pad=10)
+            axes[i].axis('off')
+
+        plt.tight_layout()
+        return plt
+
+    def linear_projection(self, input, output_dim=768):
+        pass
+
 
     def forward(self, batch, test=False):
         # Prepare encoder inputs with combined visual and textual features
         # Extract multi-modal features from M3AE
         m3ae_output = self.m3ae.infer(batch, mask_text=False, mask_image=False)
 
-        multi_modal_cls_feats = torch.cat([
-            m3ae_output["multi_modal_image_feats"], 
-            m3ae_output["multi_modal_text_feats"]
-        ], dim=1)
+
+        multi_modal_cls_feats_list = []
+
+        # Add features based on the conditions
+        if self.hparams.m3ae_config['mm_encoder_inputs_include_imagetext_feats']:
+            multi_modal_cls_feats_list.append(m3ae_output["multi_modal_image_feats"])
+            multi_modal_cls_feats_list.append(m3ae_output["multi_modal_text_feats"])
+
+        if self.hparams.m3ae_config['mm_encoder_inputs_include_cls_feats']:
+            multi_modal_cls_feats_list.append(m3ae_output['multi_modal_cls_feats'].view(-1, 2, 768))
+
+        # Concatenate all the selected features along dimension 1
+        multi_modal_cls_feats = torch.cat(multi_modal_cls_feats_list, dim=1)
 
         ret = dict()
+
+        targets = batch["vqa_answer"]
+        targets = [ans[0] for ans in targets]
 
 
         if len(self.current_tasks) == 0 or test:
             # Inference/test mode - generate text
-            generated_texts = self.decoder.recognize_greedy_search(
+            output = self.decoder.search_path(
                 multi_modal_cls_feats, 
                 tokenizer=self.tokenizer
             )
+            generated_texts = [
+                    self.tokenizer.decode(seq, skip_special_tokens=True) 
+                    for seq in output
+                ]
+            generated_texts_ = [[item] for item in generated_texts]
+            loss = 0
             
-            generated_texts_ = [self.tokenizer.decode(seq, skip_special_tokens=True) for seq in generated_texts]
-            ret.update({'outputs': generated_texts_})
-            return ret
 
-        else:
-            # Training mode
-            targets = batch["vqa_answer"]
-            targets = [ans[0] for ans in targets]
-            # print(f"\n training targets {targets}")
+        else:          
             
             # Tokenize and pad targets
             target_tokens = self.tokenizer(
@@ -296,20 +343,28 @@ class DecoderModel(pl.LightningModule):
                 max_length=self.max_answer_length
             ).input_ids.to(self.device)
 
-            # remove start of sequence token
-            target_tokens = target_tokens[:, 1:]
-            # print(f"targets: {targets} \n")
+            # remove end of sequence token
+            target_shifted = target_tokens[:, :-1]
+            padding = torch.full_like(target_shifted, self.tokenizer.pad_token_id)
+            eos = torch.full_like(target_shifted, self.tokenizer.sep_token_id)
+            target_shifted = torch.where(target_shifted == eos, padding, target_shifted)
+                        
+
+            # print(f"\n training targets {targets} \n target tokens: {target_tokens}")
             
-            padding_mask = torch.ne(target_tokens, self.tokenizer.pad_token_id)
+            padding_mask = torch.ne(target_shifted, self.tokenizer.pad_token_id)
 
             # Get model outputs
             output, attention_weights = self.decoder(
-                target_tokens, 
+                target_shifted, 
                 padding_mask, 
                 multi_modal_cls_feats
             )
+
+            # remove start of sequence token to create golden target
+            target_golden = target_tokens[:, 1:]
             
-            ce_loss = self.criterion(output.transpose(1, 2), target_tokens) * padding_mask
+            ce_loss = self.criterion(output.transpose(1, 2), target_golden) * padding_mask
             loss = ce_loss.sum() / padding_mask.sum()
             
             # Decode generated text for metrics
@@ -319,17 +374,17 @@ class DecoderModel(pl.LightningModule):
                     for seq in torch.argmax(output, dim=-1)
                 ]
                 generated_texts_ = [[item] for item in generated_texts]
-            
-            ret.update(objectives.compute_vqa(
-                self, 
-                batch, 
-                test=test, 
-                outputs=generated_texts_,
-                loss=loss,
-                labels=targets
-            ))
-            
-            return ret
+        
+        ret.update(objectives.compute_vqa(
+            self, 
+            batch, 
+            test=test, 
+            outputs=generated_texts_,
+            loss=loss,
+            labels=targets
+        ))
+        
+        return ret
 
 
     def training_step(self, batch, batch_idx):
@@ -363,9 +418,6 @@ class DecoderModel(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         m3ae_t5_utils.set_task(self)
         output = self(batch)
-        torch.save({"model_state_dict": self.decoder.state_dict(),},
-        "/home/vdir00804/MM-VQA-Healthcare/checkpoints/decoder.ckpt"
-        )
 
     def validation_epoch_end(self, outs):
         m3ae_t5_utils.epoch_wrapup(self)
@@ -374,9 +426,17 @@ class DecoderModel(pl.LightningModule):
         m3ae_t5_utils.set_task(self)
         output = self(batch, test=True)
 
+        # if batch_idx % 50 == 0:
+        #     heatmap_fig = self.visualize_attention_heatmap(batch)
+            
+        #     # Save figure to a file
+        #     heatmap_fig.savefig(f'attention_heatmap_batch_{batch_idx}.png')
+            
+        #     plt.close(heatmap_fig)
+
     def test_epoch_end(self, outs):
         m3ae_t5_utils.epoch_wrapup(self, test=True)
 
 
     def configure_optimizers(self):
-        return m3ae_t5_utils.set_schedule(self)
+        return m3ae_t5_utils.set_schedule_decoder(self)

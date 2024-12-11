@@ -106,7 +106,11 @@ def compute_itm(pl_module, batch):
         "itm_labels": itm_labels,
     }
 
-    phase = "train" if pl_module.training else "val"
+    if test:
+        phase = "test"
+    else:
+        phase = "train" if pl_module.training else "val"
+
     loss = getattr(pl_module, f"{phase}_itm_loss")(ret["itm_loss"])
     acc = getattr(pl_module, f"{phase}_itm_accuracy")(ret["itm_logits"], ret["itm_labels"])
     pl_module.log(f"itm/{phase}/loss", loss)
@@ -142,22 +146,30 @@ def compute_vqa(pl_module, batch, test, outputs, loss, labels):
         "vqa_answer_types": vqa_answer_types,
     }
 
-    phase = "train" if pl_module.training else "val"
+    if test:
+        phase = "test"
+    else:
+        phase = "train" if pl_module.training else "val"
 
     loss = getattr(pl_module, f"{phase}_vqa_loss")(ret["vqa_loss"])
     rouge1 = getattr(pl_module, f"{phase}_vqa_rouge1")(ret["vqa_logits"], ret["vqa_labels"])
     rouge2 = getattr(pl_module, f"{phase}_vqa_rouge2")(ret["vqa_logits"], ret["vqa_labels"])
     bleu = getattr(pl_module, f"{phase}_vqa_bleu_score")(ret["vqa_logits"], ret["vqa_labels"])
+    exact_match = getattr(pl_module, f"{phase}_vqa_exact_match")(ret["vqa_logits"], ret["vqa_labels"])
 
-    # print(f'model output: {ret["vqa_logits"]},\n labels: {ret["vqa_labels"]}')
+    if phase == 'test':
+        print(f'model output: {ret["vqa_logits"]},\n labels: {ret["vqa_labels"]}')
 
     # score = getattr(pl_module, f"{phase}_vqa_score")(ret["vqa_logits"], ret["vqa_targets"], ret["vqa_answer_types"])
     # pl_module.log(f"{phase}/vqa/score", score)
+
+    # print(f"logging for phase: {phase}")
 
     pl_module.log(f"{phase}/vqa/loss", loss)
     pl_module.log(f"{phase}/vqa/rouge1", rouge1)
     pl_module.log(f"{phase}/vqa/rouge2", rouge2)
     pl_module.log(f"{phase}/vqa/bleu", bleu)
+    pl_module.log(f"{phase}/vqa/exact_match", exact_match)
 
     return ret
 
@@ -199,12 +211,16 @@ def compute_vqa_m3ae(pl_module, batch, test):
         "vqa_answer_types": vqa_answer_types,
     }
 
-    phase = "train" if pl_module.training else "val"
+    if test:
+        phase = "test"
+    else:
+        phase = "train" if pl_module.training else "val"
 
     loss = getattr(pl_module, f"{phase}_vqa_loss")(ret["vqa_loss"])
     rouge1 = getattr(pl_module, f"{phase}_vqa_rouge1")(ret["vqa_model_answers"], ret["vqa_true_answers"])
     rouge2 = getattr(pl_module, f"{phase}_vqa_rouge2")(ret["vqa_model_answers"], ret["vqa_true_answers"])
     bleu = getattr(pl_module, f"{phase}_vqa_bleu_score")(ret["vqa_model_answers"], ret["vqa_true_answers"])
+    exact_match = getattr(pl_module, f"{phase}_vqa_exact_match")(ret["vqa_model_answers"], ret["vqa_true_answers"])
 
     score = getattr(pl_module, f"{phase}_vqa_score")(ret["vqa_logits"], ret["vqa_targets"], ret["vqa_answer_types"])
     pl_module.log(f"{phase}/vqa/score", score)
@@ -213,6 +229,7 @@ def compute_vqa_m3ae(pl_module, batch, test):
     pl_module.log(f"{phase}/vqa/rouge1", rouge1)
     pl_module.log(f"{phase}/vqa/rouge2", rouge2)
     pl_module.log(f"{phase}/vqa/bleu", bleu)
+    pl_module.log(f"{phase}/vqa/exact_match", exact_match)
 
     return ret
 

@@ -76,6 +76,25 @@ class VQAScore(Metric):
     def compute(self):
         return self.score / self.total
 
+#Exact Match Accuracy
+class VQAExactMatch(Metric):
+    def __init__(self, dist_sync_on_step=False):
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        self.add_state("exact_match_accuracy", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.tensor(0.0), dist_reduce_fx="sum")
+
+    def update(self, preds, targets):
+        for pred, target in zip(preds, targets):
+            pred_str = pred[0] if isinstance(pred, list) else pred
+            target_str = target[0] if isinstance(target, list) else target
+            # print(f"prediction: {pred_str} \n target:{target_str}")
+            if pred_str == target_str:
+                self.exact_match_accuracy += 1
+            self.total += 1
+
+    def compute(self):
+        return self.exact_match_accuracy / self.total if self.total > 0 else torch.tensor(0.0)
+
 ### ROUGE-1 score
 class ROUGE1Score(Metric):
     def __init__(self, dist_sync_on_step=False):
