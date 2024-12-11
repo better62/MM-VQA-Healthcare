@@ -22,9 +22,6 @@ def main(_config):
     pl.seed_everything(_config["seed"])
 
     # Data modules
-    # update dist param to be optional
-    #dm = MTDataModule(_config, dist=True)
-    #dm = MTDataModule(_config, dist=False)  
     dm = MTDataModule(_config, dist=_config["use_ddp"])  
 
 
@@ -80,7 +77,6 @@ def main(_config):
         gpus=[_config["gpu_device_number"]], # GPU device number
         num_nodes=_config["num_nodes"],
         precision=_config["precision"],
-        # distributed_backend="ddp",  
         benchmark=True,
         deterministic=True,
         max_epochs=max_epochs,

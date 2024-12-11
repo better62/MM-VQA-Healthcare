@@ -22,9 +22,6 @@ def main(_config):
     pl.seed_everything(_config["seed"])
 
     # Data modules
-    # update dist param to be optional
-    #dm = MTDataModule(_config, dist=True)
-    #dm = MTDataModule(_config, dist=False)  
     dm = MTDataModule(_config, dist=_config["use_ddp"])  
 
     # Module
@@ -40,17 +37,7 @@ def main(_config):
     wb_logger = pl.loggers.WandbLogger(project="VQA-RAD-Decoder-Only", name=run_name)
     loggers = [tb_logger, wb_logger]
 
-    # Callbackttg
-    '''
-    checkpoint_callback = pl.callbacks.ModelCheckpoint(
-        save_top_k=1,
-        verbose=True,
-        monitor="val/vqa/loss",
-        mode="max",
-        save_last=True,
-        save_weights_only=True if "finetune" in exp_name else False
-    )
-    '''
+    # Callbacking
     # save every checkpoint per epoch
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
         save_top_k=-1,

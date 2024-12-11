@@ -1,7 +1,6 @@
 num_gpus=1
 per_gpu_batchsize=16
 
-
 python3.8 main_decoder_m3ae.py with data_root=data/finetune_arrows_vqa_rad/ \
  num_gpus=${num_gpus} num_nodes=1 \
  task_finetune_vqa_vqa_rad \
@@ -10,4 +9,4 @@ python3.8 main_decoder_m3ae.py with data_root=data/finetune_arrows_vqa_rad/ \
  image_size=384 \
  test_only=True \
  tokenizer=downloaded/roberta-base \
- load_path=downloaded/finetuned/vqa/vqa_rad/m3ae_finetuned_vqa_vqa_rad_77.4.ckpt
+ load_path=downloaded/finetuned/vqa/vqa_rad/m3ae_finetuned_vqa_vqa_rad.ckpt

@@ -1,9 +1,6 @@
 num_gpus=1
 per_gpu_batchsize=16
 
-# === 1. VQA ===
-# === VQA-RAD ===
-
 python3.8 main.py with data_root=data/finetune_arrows_m3ae/ \
  num_workers=0 \
  num_gpus=${num_gpus} num_nodes=1 \

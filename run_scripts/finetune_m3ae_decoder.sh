@@ -19,7 +19,7 @@ per_gpu_batchsize=32
 #  clip16 text_roberta \
 #  image_size=384 \
 #  tokenizer=downloaded/roberta-base \
-#  load_path=downloaded/finetuned/vqa/vqa_rad/m3ae_finetuned_vqa_vqa_rad_77.4.ckpt 
+#  load_path=downloaded/finetuned/vqa/vqa_rad/m3ae_finetuned_vqa_vqa_rad.ckpt 
 
 # python3.8 main_decoder_m3ae.py with data_root=data/finetune_arrows_vqa_rad/ \
 #  num_workers=8 \
@@ -35,7 +35,7 @@ per_gpu_batchsize=32
 #  clip16 text_roberta \
 #  image_size=384 \
 #  tokenizer=downloaded/roberta-base \
-#  load_path=downloaded/finetuned/vqa/vqa_rad/m3ae_finetuned_vqa_vqa_rad_77.4.ckpt \
+#  load_path=downloaded/finetuned/vqa/vqa_rad/m3ae_finetuned_vqa_vqa_rad.ckpt \
 #  decoder_load_path=downloaded/finetuned/vqa/vqa_rad/decoder_clsonly_16.ckpt
 
 python3.8 main_decoder_m3ae.py with data_root=data/finetune_arrows_vqa_rad/ \
@@ -52,6 +52,6 @@ python3.8 main_decoder_m3ae.py with data_root=data/finetune_arrows_vqa_rad/ \
  clip16 text_roberta \
  image_size=384 \
  tokenizer=downloaded/roberta-base \
- load_path=downloaded/finetuned/vqa/vqa_rad/m3ae_finetuned_vqa_vqa_rad_77.4.ckpt \
+ load_path=downloaded/finetuned/vqa/vqa_rad/m3ae_finetuned_vqa_vqa_rad.ckpt \
  decoder_load_path=downloaded/finetuned/vqa/vqa_rad/decoder_cls_imgtext_20.ckpt
  # ==================== DECODER ONLY ABLATIONS ==============================
