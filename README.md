@@ -1,8 +1,52 @@
-# Medical Visual Question Answering: A Multimodal Approach Leveraging Temporal Information
-Healthcare data is inherently multimodal, comprising textual (e.g., clinical notes, radiology reports), visual (e.g., radiological scans, digitized histopathology slides), and structured (e.g., vital signs, laboratory results) components. In clinical practice, healthcare professionals synthesize information from these diverse sources to deliver comprehensive patient care, necessitating AI/ML models capable of processing heterogeneous data inputs.
+## Medical Visual Question Answering: Improving Answer Quality on Multimodal Datasets with a Generative Output Layer
+Healthcare data is inherently multimodal, combining textual (e.g., clinical notes) and visual (e.g., medical images) components. Medical Visual Question Answering (Med-VQA) seeks to address this by enabling AI models to interpret multimodal data and answer clinically relevant questions. However, most Med-VQA models rely on classification-based approaches, which constrain adaptability and clinical applicability due to the use of a fixed answer set.
 
-Recent advances in Vision Language Models (VLMs) have demonstrated the ability to integrate visual and textual information for healthcare applications. These models have been successfully applied to tasks such as medical image classification, disease diagnosis, and automated report generation. Some studies have also explored the use of VLMs for medical visual question answering (VQA), where models interpret medical images and associated text to answer clinically relevant questions.
+We propose reframing Med-VQA as a generative task by replacing the classification head in the state-of-the-art M$^3$AE model with a generative layer. This approach allows the model to produce open-ended, contextually relevant responses, improving its flexibility and practical utility. Experimental results demonstrate significant enhancements in question-answering performance, highlighting the potential of generative Med-VQA models to support diverse and real-world clinical applications effectively.
 
-However, most current approaches treat each image-report pair independently, overlooking the temporal aspects of medical data. To address this limitation, some studies have incorporated longitudinal data for tasks like report generation, progression modeling, and disease classification. Yet, these approaches often neglect the rich information in Electronic Health Record (EHR) tabular data, which offers daily insights into patient conditions. Moreover, to our knowledge, few studies have explored using longitudinal data for medical Visual Question Answering (VQA) tasks, which are crucial for mimicking real-world clinical scenarios.
 
-Building upon these advances, we propose a novel approach that leverages the inherent temporal structure in medical data, including EHR tabular data, for medical VQA tasks. Our method incorporates prior images, reports, and structured EHR data in the analysis, better reflecting the reality of clinical decision-making. By exploiting temporal correlations, we aim to provide a more comprehensive understanding of patient trajectories and disease progression. Consequently, our approach aims to improve the accuracy and clinical relevance of medical Visual Question Answering by incorporating longitudinal data and EHR information, potentially enabling enhanced patient monitoring in real-world clinical scenarios.
+## Requirements
+Run the following command to install the required packages. Keep in mind this will require Python 3.8.
+```bash
+pip install -r requirements.txt
+```
+
+## Weights
+Weights are available [here]()
+
+## Downstream Evaluation
+### 1. Dataset Preparation
+Please organize the fine-tuning datasets as the following structure:
+```angular2
+root:[data]
++--finetune_data
+| +--vqa_rad
+| | +--trainset.json
+| | +--valset.json
+| | +--testset.json
+| | +--images
+```
+
+### 2. Pre-processing
+Run the following command to pre-process the data:
+```angular2
+python prepro/prepro_finetuning_data.py
+```
+to get the following arrow files:
+```angular2
+root:[data]
++--finetune_arrows
+| +--vqa_vqa_rad_train.arrow
+| +--vqa_vqa_rad_val.arrow
+| +--vqa_vqa_rad_test.arrow
+```
+
+### 3. Fine-Tuning:
+```angular2
+bash run_scripts/finetune_m3ae.sh
+```
+
+### 4. Test:
+```angular2
+bash run_scripts/test_m3ae.sh
+```
+

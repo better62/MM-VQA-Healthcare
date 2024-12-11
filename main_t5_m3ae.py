@@ -29,7 +29,7 @@ def main(_config):
 
 
     # Module
-    model = T5VQA_TextEncoderInput(_config)
+    model = T5VQA_MMEncoderInput(_config)
     model.unfreeze_top_layers(num_encoder_layers=_config["unfreeze_num_encoder_layers"],num_decoder_layers=_config["unfreeze_num_decoder_layers"]) # Unfreeze the top 1 layers of DistilBERT
 
     # Loggers
@@ -39,7 +39,7 @@ def main(_config):
     tb_logger = pl.loggers.TensorBoardLogger(_config["log_dir"], name=run_name)
 
     # Define project name here !!
-    wb_logger = pl.loggers.WandbLogger(project="VQA-RAD-T5", name=run_name)
+    wb_logger = pl.loggers.WandbLogger(project=_config["project_name"], name=run_name)
     loggers = [tb_logger, wb_logger]
 
     # Callbackttg

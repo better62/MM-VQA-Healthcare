@@ -373,6 +373,7 @@ class DecoderModel(pl.LightningModule):
                     self.tokenizer.decode(seq, skip_special_tokens=True) 
                     for seq in torch.argmax(output, dim=-1)
                 ]
+                #print("generated_texts: ",generated_texts,'\n\n') # generated_texts:  ['infantsik paternal paternal', 'infants virgin paternal paternal', '##nsteinik paternal paternal', '##ectionik paternal paternal', 'highlight ᄑ martinaik', '##ectionik paternal paternal', 'infantsik paternal paternal', 'infantsik paternal paternal'] 
                 generated_texts_ = [[item] for item in generated_texts]
         
         ret.update(objectives.compute_vqa(

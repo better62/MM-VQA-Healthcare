@@ -13,4 +13,6 @@ python3.8 main.py with data_root=data/finetune_arrows_m3ae/ \
  image_size=384 \
  test_only=True \
  tokenizer=downloaded/roberta-base \
- load_path=downloaded/finetuned/vqa/vqa_rad/m3ae_finetuned_vqa_vqa_rad_77.4.ckpt
+ load_path=downloaded/finetuned/vqa/vqa_rad/m3ae_finetuned_vqa_vqa_rad.ckpt \
+
+
